@@ -1,6 +1,5 @@
 {
   "name": "bangumi-list-v3-client-v2",
-  "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -9,6 +8,14 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "author": "Mercutio <me@mercutio.club> (https://github.com/mercutiojohn)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mercutiojohn/bangumi-list-v3.git",
+    "directory": "packages/client_v2"
+  },
+  "license": "MIT",
+  "private": true,
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
     "@radix-ui/react-accordion": "^1.2.11",
@@ -48,9 +55,9 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.523.0",
     "next-themes": "^0.4.6",
-    "react": "^19.1.0",
+    "react": "^18",
     "react-day-picker": "^9.7.0",
-    "react-dom": "^19.1.0",
+    "react-dom": "^18",
     "react-hook-form": "^7.58.1",
     "react-resizable-panels": "^3.0.3",
     "react-router": "^7.6.2",

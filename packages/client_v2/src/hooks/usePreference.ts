@@ -65,6 +65,16 @@ export const usePreferenceActions = () => {
     preferenceActions.setBangumiPreference(preference);
   };
 
+  // Toggle watching status for a bangumi item
+  const toggleWatching = (itemId: string): void => {
+    const currentWatching = bangumiPreferenceStore.watching;
+    if (currentWatching.includes(itemId)) {
+      preferenceActions.removeBangumiWatching(itemId);
+    } else {
+      preferenceActions.addBangumiWatching(itemId);
+    }
+  };
+
   return {
     // Actions
     ...preferenceActions,
@@ -78,5 +88,7 @@ export const usePreferenceActions = () => {
     updateCommonPreferenceLocal,
     getBangumiPreferenceLocal,
     updateBangumiPreferenceLocal,
+    // Bangumi watching operations
+    toggleWatching,
   };
 };

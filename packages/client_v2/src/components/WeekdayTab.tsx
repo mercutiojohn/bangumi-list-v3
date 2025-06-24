@@ -20,11 +20,11 @@ interface WeekdayTabProps {
   className?: string;
 }
 
-export default function WeekdayTab({ 
-  activated = Weekday.ALL, 
-  onClick, 
-  disabled = false, 
-  className 
+export default function WeekdayTab({
+  activated = Weekday.ALL,
+  onClick,
+  disabled = false,
+  className
 }: WeekdayTabProps) {
   const buttons = tabItems.map(([tab, text]) => {
     const isActivated = tab === activated;

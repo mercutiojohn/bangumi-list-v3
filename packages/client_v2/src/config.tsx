@@ -28,10 +28,10 @@ export const ROUTER_ITEMS = createBrowserRouter([
         path: "/me",
         Component: UserCenterPage,
       },
-      {
-        path: "/settings",
-        element: <div>Settings Page</div>,
-      }
+      // {
+      //   path: "/settings",
+      //   element: <div>Settings Page</div>,
+      // }
     ],
   },
 ]);
@@ -42,11 +42,11 @@ export const MENU_ITEMS = [
     path: "/",
     icon: Home,
   },
-  {
-    title: "设置",
-    path: "/settings",
-    icon: Settings,
-  },
+  // {
+  //   title: "设置",
+  //   path: "/settings",
+  //   icon: Settings,
+  // },
 ]
 
 export const USER_MENU_ITEMS = [

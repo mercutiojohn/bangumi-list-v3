@@ -1,116 +1,219 @@
-import { useAppInit, useUser, useOnAirData, useSiteData } from "@/hooks"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useState, useMemo, useEffect } from "react";
+import { useAppInit, useOnAirData, useSiteData, usePreference } from "@/hooks";
+import {
+  Top,
+  WeekdayTab,
+  BangumiItemTable,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Badge
+} from "@/components";
+import {
+  Weekday,
+  searchFilter,
+  weekdayFilter,
+  newBangumiFilter,
+  watchingFilter,
+  itemSortCompare,
+  hoistWatchingItems
+} from "@/lib/bangumi-utils";
+
+// 站点域名模板（复刻原client的逻辑）
+const bangumiTemplates = {
+  'bangumi.tv': 'https://bgm.tv/subject/{{id}}',
+  'chii.in': 'https://chii.in/subject/{{id}}',
+};
+
+const mikanTemplates = {
+  'mikanani.me': 'https://mikanani.me/Home/Bangumi/{{id}}',
+  'mikanime.tv': 'https://mikanime.tv/Home/Bangumi/{{id}}',
+};
 
 function App() {
-  // Initialize app
+  // 初始化应用
   useAppInit();
 
-  // Get user state
-  const user = useUser();
-
-  // Get bangumi data
+  // 获取数据
   const { data: onairData, isLoading: onairLoading, error: onairError } = useOnAirData();
   const { data: siteData, isLoading: siteLoading, error: siteError } = useSiteData();
 
+  // 获取偏好设置
+  const { common, bangumi } = usePreference();
+
+  // 本地状态
+  const [currentTab, setCurrentTab] = useState<Weekday>(new Date().getDay());
+  const [searchText, setSearchText] = useState<string>('');
+  const [hoistWatchingIds, setHoistWatchingIds] = useState<string[]>([]);
+
+  const isInSearch = !!searchText;
+
+  // 修改站点元数据，添加域名模板
+  const modifiedSiteMeta = useMemo(() => {
+    if (!siteData) return {};
+
+    return {
+      ...siteData,
+      bangumi: {
+        ...siteData.bangumi,
+        urlTemplate: bangumiTemplates[common.bangumiDomain as keyof typeof bangumiTemplates] || bangumiTemplates['bangumi.tv'],
+      },
+      mikan: {
+        ...siteData.mikan,
+        urlTemplate: mikanTemplates[common.mikanDomain as keyof typeof mikanTemplates] || mikanTemplates['mikanani.me'],
+      },
+    };
+  }, [siteData, common.bangumiDomain, common.mikanDomain]);
+
+  // 过滤和排序番组
+  const filteredItems = useMemo(() => {
+    const items = onairData?.items || [];
+    if (!items.length) return [];
+
+    let filteredItems = [];
+
+    if (isInSearch) {
+      // 搜索模式
+      filteredItems = items.filter(searchFilter(searchText));
+    } else {
+      // 周几筛选
+      filteredItems = items.filter(weekdayFilter(currentTab));
+
+      // 应用偏好筛选
+      if (common.watchingOnly) {
+        filteredItems = filteredItems.filter(watchingFilter([...bangumi.watching]));
+      } else if (common.newOnly) {
+        filteredItems = filteredItems.filter(newBangumiFilter);
+      }
+    }
+
+    // 排序
+    filteredItems.sort(itemSortCompare);
+
+    // 置顶在看的番组
+    if (common.hoistWatching && hoistWatchingIds.length) {
+      filteredItems = hoistWatchingItems(filteredItems, hoistWatchingIds);
+    }
+
+    return filteredItems;
+  }, [
+    onairData,
+    isInSearch,
+    searchText,
+    currentTab,
+    common.watchingOnly,
+    common.newOnly,
+    common.hoistWatching,
+    bangumi.watching,
+    hoistWatchingIds,
+  ]);
+
+  // 更新置顶列表
+  useEffect(() => {
+    if (common.hoistWatching) {
+      setHoistWatchingIds([...bangumi.watching]);
+    } else {
+      setHoistWatchingIds([]);
+    }
+  }, [currentTab, common.hoistWatching, bangumi.watching]);
+
+  const handleTabClick = (tab: Weekday) => {
+    setCurrentTab(tab);
+  };
+
+  const handleSearchInput = (text: string) => {
+    setSearchText(text);
+  };
+
+  // 加载状态
+  if (onairLoading || siteLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (onairError || siteError) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center py-12">
+          <p className="text-destructive">获取数据失败，请稍后重试</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {/* 页面标题 */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold">番组放送 V2</h1>
-        <p className="text-muted-foreground">使用 Vite + Tailwind + shadcn/ui 重构</p>
+        <h1 className="text-4xl font-bold">每日放送</h1>
+        <p className="text-muted-foreground">方便快捷的版权动画播放地址聚合站</p>
       </div>
 
-      {/* User Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>用户状态</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {user.isLogin ? (
-            <div className="space-y-2">
-              <Badge variant="secondary">已登录</Badge>
-              <p>邮箱: {user.email}</p>
-              <p>ID: {user.id}</p>
+      {/* 搜索栏 */}
+      <Top onSearchInput={handleSearchInput} />
+
+      {/* 筛选设置状态 */}
+      {(common.newOnly || common.watchingOnly || common.hoistWatching) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">当前筛选设置</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {common.newOnly && (
+                <Badge variant="secondary">仅显示新番</Badge>
+              )}
+              {common.watchingOnly && (
+                <Badge variant="secondary">仅显示在看</Badge>
+              )}
+              {common.hoistWatching && (
+                <Badge variant="secondary">置顶在看</Badge>
+              )}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 周几选择 */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <WeekdayTab
+          disabled={isInSearch}
+          activated={currentTab}
+          onClick={handleTabClick}
+        />
+
+        {/* 数据统计 */}
+        <div className="text-sm text-muted-foreground">
+          {isInSearch ? (
+            `搜索到 ${filteredItems.length} 部作品`
           ) : (
-            <Badge variant="outline">未登录</Badge>
+            `共 ${filteredItems.length} 部作品`
           )}
-        </CardContent>
-      </Card>
-
-      {/* Data Status */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>番组数据</CardTitle>
-            <CardDescription>每日放送数据加载状态</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {onairLoading && <Badge variant="secondary">加载中...</Badge>}
-            {onairError && <Badge variant="destructive">加载失败</Badge>}
-            {onairData && (
-              <div className="space-y-2">
-                <Badge variant="default">加载成功</Badge>
-                <p>番组数量: {onairData.items?.length || 0}</p>
-                <p>更新时间: {onairData.updated ? new Date(onairData.updated).toLocaleString() : '未知'}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>站点数据</CardTitle>
-            <CardDescription>播放平台元数据</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {siteLoading && <Badge variant="secondary">加载中...</Badge>}
-            {siteError && <Badge variant="destructive">加载失败</Badge>}
-            {siteData && (
-              <div className="space-y-2">
-                <Badge variant="default">加载成功</Badge>
-                <p>站点数量: {Object.keys(siteData).length}</p>
-                <div className="flex flex-wrap gap-1">
-                  {Object.keys(siteData).slice(0, 5).map(site => (
-                    <Badge key={site} variant="outline" className="text-xs">
-                      {site}
-                    </Badge>
-                  ))}
-                  {Object.keys(siteData).length > 5 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{Object.keys(siteData).length - 5}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        </div>
       </div>
 
-      {/* Test API Connection */}
-      <Card>
-        <CardHeader>
-          <CardTitle>API 连接测试</CardTitle>
-          <CardDescription>验证与后端服务的连接状态</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
-              测试登录接口
-            </Button>
-            <Button variant="outline" size="sm">
-              测试数据接口
-            </Button>
-            <Button variant="outline" size="sm">
-              测试偏好设置
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 番组列表 */}
+      <BangumiItemTable
+        items={filteredItems}
+        siteMeta={modifiedSiteMeta}
+        emptyText={isInSearch ? '无搜索结果' : '暂无番组'}
+      />
+
+      {/* 数据更新时间 */}
+      {onairData?.updated && (
+        <div className="text-center text-sm text-muted-foreground mt-8">
+          数据更新时间: {new Date(onairData.updated).toLocaleString('zh-CN')}
+        </div>
+      )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
