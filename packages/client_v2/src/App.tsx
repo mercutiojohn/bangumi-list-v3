@@ -17,7 +17,8 @@ import {
   newBangumiFilter,
   watchingFilter,
   itemSortCompare,
-  hoistWatchingItems
+  hoistWatchingItems,
+  SiteType
 } from "@/lib/bangumi-utils";
 
 // 站点域名模板（复刻原client的逻辑）
@@ -46,6 +47,7 @@ function App() {
   const [currentTab, setCurrentTab] = useState<Weekday>(new Date().getDay());
   const [searchText, setSearchText] = useState<string>('');
   const [hoistWatchingIds, setHoistWatchingIds] = useState<string[]>([]);
+  const [activeSiteFilter, setActiveSiteFilter] = useState<string>(''); // 新增配信筛选状态
 
   const isInSearch = !!searchText;
 
@@ -65,6 +67,22 @@ function App() {
       },
     };
   }, [siteData, common.bangumiDomain, common.mikanDomain]);
+
+  // 获取可用的配信站点列表
+  const availableSites = useMemo(() => {
+    if (!siteData) return [];
+
+    return Object.entries(siteData)
+      .filter(([_, meta]) => meta.type === SiteType.ONAIR)
+      .map(([id, meta]) => ({ id, name: meta.title }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [siteData]);
+
+  // 配信站点筛选函数
+  const siteFilter = (siteId: string) => (item: any) => {
+    if (!siteId) return true;
+    return item.sites.some((site: any) => site.site === siteId);
+  };
 
   // 过滤和排序番组
   const filteredItems = useMemo(() => {
@@ -88,6 +106,11 @@ function App() {
       }
     }
 
+    // 配信站点筛选
+    if (activeSiteFilter) {
+      filteredItems = filteredItems.filter(siteFilter(activeSiteFilter));
+    }
+
     // 排序
     filteredItems.sort(itemSortCompare);
 
@@ -107,6 +130,7 @@ function App() {
     common.hoistWatching,
     bangumi.watching,
     hoistWatchingIds,
+    activeSiteFilter, // 新增依赖
   ]);
 
   // 更新置顶列表
@@ -124,6 +148,10 @@ function App() {
 
   const handleSearchInput = (text: string) => {
     setSearchText(text);
+  };
+
+  const handleSiteFilter = (site: string) => {
+    setActiveSiteFilter(site);
   };
 
   // 加载状态
@@ -160,7 +188,7 @@ function App() {
       <Top onSearchInput={handleSearchInput} />
 
       {/* 筛选设置状态 */}
-      {(common.newOnly || common.watchingOnly || common.hoistWatching) && (
+      {(common.newOnly || common.watchingOnly || common.hoistWatching || activeSiteFilter) && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">当前筛选设置</CardTitle>
@@ -176,17 +204,25 @@ function App() {
               {common.hoistWatching && (
                 <Badge variant="secondary">置顶在看</Badge>
               )}
+              {activeSiteFilter && (
+                <Badge variant="secondary">
+                  配信: {availableSites.find(s => s.id === activeSiteFilter)?.name || activeSiteFilter}
+                </Badge>
+              )}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* 周几选择 */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* 周几选择和配信筛选 */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <WeekdayTab
           disabled={isInSearch}
           activated={currentTab}
           onClick={handleTabClick}
+          onSiteFilter={handleSiteFilter}
+          activeSiteFilter={activeSiteFilter}
+          availableSites={availableSites}
         />
 
         {/* 数据统计 */}

@@ -25,6 +25,147 @@ interface ImageCache {
   };
 }
 
+// PV bvid 缓存接口
+interface PvBvidCache {
+  [mediaId: string]: {
+    bvid: string;
+    timestamp: number;
+  };
+}
+
+// B站官方API响应接口
+interface BilibiliMediaResponse {
+  code: number;
+  message: string;
+  result: {
+    media: {
+      areas: Array<{
+        id: number;
+        name: string;
+      }>;
+      cover: string;
+      horizontal_picture: string;
+      media_id: number;
+      new_ep: {
+        id: number;
+        index: string;
+        index_show: string;
+      };
+      rating: {
+        count: number;
+        score: number;
+      };
+      season_id: number;
+      share_url: string;
+      title: string;
+      type: number;
+      type_name: string;
+    };
+  };
+}
+
+// Biliplus API 响应接口
+interface BiliplusResponse {
+  code: number;
+  message: string;
+  result: {
+    season_id: number;
+    season_title: string;
+    section: Array<{
+      attr: number;
+      episode_id: number;
+      episode_ids: number[];
+      episodes: Array<{
+        aid: number;
+        badge: string;
+        badge_info: {
+          bg_color: string;
+          bg_color_night: string;
+          text: string;
+        };
+        badge_type: number;
+        bvid: string;
+        cid: number;
+        cover: string;
+        dimension: {
+          height: number;
+          rotate: number;
+          width: number;
+        };
+        duration: number;
+        enable_vt: boolean;
+        ep_id: number;
+        from: string;
+        icon_font: {
+          name: string;
+          text: string;
+        };
+        id: number;
+        is_view_hide: boolean;
+        link: string;
+        long_title: string;
+        pub_time: number;
+        pv: number;
+        release_date: string;
+        rights: {
+          allow_dm: number;
+          allow_download: number;
+          area_limit: number;
+        };
+        section_type: number;
+        share_copy: string;
+        share_url: string;
+        short_link: string;
+        showDrmLoginDialog: boolean;
+        show_title: string;
+        skip: {
+          ed: {
+            end: number;
+            start: number;
+          };
+          op: {
+            end: number;
+            start: number;
+          };
+        };
+        stat: {
+          coin: number;
+          danmakus: number;
+          likes: number;
+          play: number;
+          reply: number;
+          vt: number;
+        };
+        stat_for_unity: {
+          coin: number;
+          danmaku: {
+            icon: string;
+            pure_text: string;
+            text: string;
+            value: number;
+          };
+          likes: number;
+          reply: number;
+          vt: {
+            icon: string;
+            pure_text: string;
+            text: string;
+            value: number;
+          };
+        };
+        status: number;
+        subtitle: string;
+        title: string;
+        vid: string;
+      }>;
+      id: number;
+      title: string;
+      type: number;
+      type2: number;
+    }>;
+  };
+}
+
 export interface SiteMap {
   [SiteType.INFO]?: {
     [key: string]: SiteItem;
@@ -52,14 +193,20 @@ class BangumiModel {
     'https://raw.staticdn.net/bangumi-data/bangumi-data/master/dist/data.json';
   private imageCache: ImageCache = {};
   private imageCachePath: string;
+  private pvBvidCache: PvBvidCache = {};
+  private pvBvidCachePath: string;
   private readonly CACHE_EXPIRE_TIME = 7 * 24 * 60 * 60 * 1000; // 7天过期
   private readonly BANGUMI_API_BASE = 'https://api.bgm.tv/v0';
+  private readonly BILIBILI_API_BASE = 'https://api.bilibili.com';
+  private readonly BILIPLUS_API_BASE = 'https://www.biliplus.com/api/bangumi';
 
   constructor() {
     this.dataFolderPath = DATA_DIR;
     this.dataPath = path.resolve(DATA_DIR, DATA_FILE);
     this.imageCachePath = path.resolve(DATA_DIR, 'image-cache.json');
+    this.pvBvidCachePath = path.resolve(DATA_DIR, 'pv-bvid-cache.json');
     this.loadImageCache();
+    this.loadPvBvidCache();
   }
 
   get isLoaded(): boolean {
@@ -173,9 +320,39 @@ class BangumiModel {
     }
   }
 
+  private async loadPvBvidCache() {
+    try {
+      const statRes = await stat(this.pvBvidCachePath);
+      const cacheExpireTime = Date.now() - this.CACHE_EXPIRE_TIME;
+      if (statRes.mtimeMs < cacheExpireTime) {
+        // 缓存过期，删除
+        await fse.unlink(this.pvBvidCachePath);
+      } else {
+        // 读取缓存
+        const cacheData = await fse.readJSON(this.pvBvidCachePath);
+        this.pvBvidCache = cacheData;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  private async savePvBvidCache() {
+    try {
+      await fse.writeJSON(this.pvBvidCachePath, this.pvBvidCache);
+    } catch (e) {
+      console.error('Failed to save PV bvid cache:', e);
+    }
+  }
+
   private getBangumiSubjectId(item: Item): string | null {
     const bangumiSite = item.sites.find((site) => site.site === 'bangumi');
     return bangumiSite?.id || null;
+  }
+
+  private getBilibiliMediaId(item: Item): string | null {
+    const bilibiliSite = item.sites.find((site) => site.site === 'bilibili');
+    return bilibiliSite?.id || null;
   }
 
   private async fetchBangumiImage(subjectId: string): Promise<string> {
@@ -238,10 +415,120 @@ class BangumiModel {
     }
   }
 
+  private async fetchSeasonIdFromBilibili(
+    mediaId: string
+  ): Promise<number | null> {
+    try {
+      // 第一步：调用B站官方API获取season_id
+      const response = await axios.get<BilibiliMediaResponse>(
+        `${this.BILIBILI_API_BASE}/pgc/review/user?media_id=${mediaId}`,
+        {
+          timeout: 5000,
+          headers: {
+            'User-Agent':
+              'bangumi-list-v3 (https://github.com/mercutio/bangumi-list-v3)',
+          },
+        }
+      );
+
+      if (response.data.code === 0 && response.data.result?.media?.season_id) {
+        return response.data.result.media.season_id;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`Failed to fetch season_id for media ${mediaId}:`, error);
+      return null;
+    }
+  }
+
+  private async fetchPvBvidFromBiliplus(
+    seasonId: number
+  ): Promise<string | null> {
+    try {
+      // 第二步：调用 biliplus API 获取PV信息
+      const response = await axios.get<BiliplusResponse>(
+        `${this.BILIPLUS_API_BASE}?season=${seasonId}`,
+        {
+          timeout: 5000,
+          headers: {
+            'User-Agent':
+              'bangumi-list-v3 (https://github.com/mercutio/bangumi-list-v3)',
+          },
+        }
+      );
+
+      if (response.data.code === 0 && response.data.result?.section) {
+        // 查找标题为 "PV" 的 section
+        const pvSection = response.data.result.section.find(
+          // (section) => section.title === 'PV' || section.title === 'PV1'
+          (section) => section.title.includes('PV')
+        );
+
+        if (pvSection && pvSection.episodes && pvSection.episodes.length > 0) {
+          // 获取第一个 episode 的 bvid
+          const bvid = pvSection.episodes[0].bvid;
+
+          if (bvid) {
+            return bvid;
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`Failed to fetch PV bvid for season ${seasonId}:`, error);
+      return null;
+    }
+  }
+
+  private async fetchPvBvid(mediaId: string): Promise<string | undefined> {
+    const cacheKey = mediaId;
+    const now = Date.now();
+
+    // 检查缓存
+    if (
+      this.pvBvidCache[cacheKey] &&
+      now - this.pvBvidCache[cacheKey].timestamp < this.CACHE_EXPIRE_TIME
+    ) {
+      return this.pvBvidCache[cacheKey].bvid;
+    }
+
+    try {
+      // 第一步：通过media_id获取season_id
+      const seasonId = await this.fetchSeasonIdFromBilibili(mediaId);
+
+      if (!seasonId) {
+        return undefined;
+      }
+
+      // 第二步：通过season_id获取PV bvid
+      const bvid = await this.fetchPvBvidFromBiliplus(seasonId);
+
+      if (bvid) {
+        // 更新缓存
+        this.pvBvidCache[cacheKey] = {
+          bvid,
+          timestamp: now,
+        };
+
+        // 异步保存缓存，不阻塞
+        this.savePvBvidCache().catch(console.error);
+
+        return bvid;
+      }
+
+      return undefined;
+    } catch (error) {
+      console.error(`Failed to fetch PV bvid for media ${mediaId}:`, error);
+      return undefined;
+    }
+  }
+
   public async enrichItemsWithImages(items: Item[]): Promise<Item[]> {
     const enrichedItems = [...items];
 
-    // 并发获取图片，但限制并发数量以避免过载
+    // 并发获取图片和 PV bvid，但限制并发数量以避免过载
     const CONCURRENT_LIMIT = 5;
     const chunks = [];
 
@@ -252,12 +539,28 @@ class BangumiModel {
     for (const chunk of chunks) {
       await Promise.all(
         chunk.map(async (item) => {
+          // 获取图片
           const subjectId = this.getBangumiSubjectId(item);
           if (subjectId) {
             try {
               item.image = await this.fetchBangumiImage(subjectId);
             } catch (error) {
               console.error(`Failed to get image for item ${item.id}:`, error);
+              // 忽略错误，继续处理其他项目
+            }
+          }
+
+          // 获取 PV bvid
+          const mediaId = this.getBilibiliMediaId(item);
+          if (mediaId) {
+            try {
+              const cachedBvid = await this.fetchPvBvid(mediaId);
+              item.previewEmbedLink = `https://player.bilibili.com/player.html?isOutside=true&bvid=${cachedBvid}&high_quality=1`;
+            } catch (error) {
+              console.error(
+                `Failed to get PV bvid for item ${item.id}:`,
+                error
+              );
               // 忽略错误，继续处理其他项目
             }
           }
