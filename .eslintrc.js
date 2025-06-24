@@ -27,4 +27,5 @@ module.exports = {
       },
     },
   ],
+  ignorePatterns: ['packages/client_v2/**/*'],
 };

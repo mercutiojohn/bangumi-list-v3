@@ -16,8 +16,10 @@
     "build": "npm run build --workspaces --if-present",
     "build:shared": "npm run build -w packages/shared",
     "dev:client": "npm run dev -w packages/client",
+    "dev:client-v2": "npm run dev -w packages/client_v2",
     "dev:server": "npm run dev -w packages/server",
     "dev": "npm-run-all -l build:shared -p dev:server dev:client",
+    "dev:v2": "npm-run-all -l build:shared -p dev:server dev:client-v2",
     "lint": "eslint --ext .jsx,.js,.ts,.tsx .",
     "lint:fix": "eslint --fix  --ext .jsx,.js,.ts,.tsx .",
     "prepare": "husky install",
@@ -28,7 +30,8 @@
   "workspaces": [
     "packages/shared",
     "packages/server",
-    "packages/client"
+    "packages/client",
+    "packages/client_v2"
   ],
   "private": true,
   "devDependencies": {

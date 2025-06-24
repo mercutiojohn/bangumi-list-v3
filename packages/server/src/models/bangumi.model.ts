@@ -41,7 +41,7 @@ class BangumiModel {
   private dataPath: string;
   private dataFolderPath: string;
   private dataURL =
-    'https://raw.githubusercontent.com/bangumi-data/bangumi-data/master/dist/data.json';
+    'https://raw.staticdn.net/bangumi-data/bangumi-data/master/dist/data.json';
 
   constructor() {
     this.dataFolderPath = DATA_DIR;
