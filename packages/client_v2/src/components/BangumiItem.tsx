@@ -2,7 +2,7 @@ import type { Item, SiteMeta } from 'bangumi-list-v3-shared';
 // import { SiteType } from 'bangumi-list-v3-shared'; // TODO: fix it
 import { format, isSameQuarter } from 'date-fns';
 import { get } from 'lodash';
-import { Heart, Globe, Calendar, Clock, ExternalLink } from "lucide-react";
+import { Heart, Globe, Calendar, Clock, ExternalLink, ImageIcon } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,39 +72,72 @@ export default function BangumiItem({
   return (
     <Card className={cn("transition-shadow hover:shadow-md", className)}>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg leading-tight mb-1 line-clamp-2">
-              {titleCN || item.title}
-            </h3>
-            {titleCN && (
-              <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-                {item.title}
-              </p>
-            )}
-            <div className="flex items-center gap-2 flex-wrap">
-              {!isArchive && isNew && (
-                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
-                  NEW
-                </Badge>
+        <div className="flex items-start gap-4">
+          {/* 番组图片 */}
+          <div className="shrink-0">
+            {item.image ? (
+              <img
+                src={item.image}
+                alt={titleCN || item.title}
+                className="w-16 h-20 sm:w-20 sm:h-28 object-cover rounded-md bg-gray-100"
+                loading="lazy"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const placeholder = target.nextElementSibling as HTMLElement;
+                  if (placeholder) {
+                    placeholder.style.display = 'flex';
+                  }
+                }}
+              />
+            ) : null}
+            <div
+              className={cn(
+                "w-16 h-20 sm:w-20 sm:h-28 bg-gray-100 rounded-md flex items-center justify-center",
+                item.image ? "hidden" : "flex"
               )}
+            >
+              <ImageIcon className="w-6 h-6 text-gray-400" />
             </div>
           </div>
 
-          {!isArchive && (
-            <Button
-              variant={isWatching ? "default" : "outline"}
-              size="sm"
-              onClick={handleWatchingClick}
-              className={cn(
-                "shrink-0 transition-colors",
-                isWatching && "bg-red-500 hover:bg-red-600 text-white"
+          {/* 番组信息 */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-lg leading-tight mb-1 line-clamp-2">
+                  {titleCN || item.title}
+                </h3>
+                {titleCN && (
+                  <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+                    {item.title}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!isArchive && isNew && (
+                    <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                      NEW
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {!isArchive && (
+                <Button
+                  variant={isWatching ? "default" : "outline"}
+                  size="sm"
+                  onClick={handleWatchingClick}
+                  className={cn(
+                    "shrink-0 transition-colors",
+                    isWatching && "bg-red-500 hover:bg-red-600 text-white"
+                  )}
+                >
+                  <Heart className={cn("h-4 w-4", isWatching && "fill-current")} />
+                  <span className="sr-only">{isWatching ? '取消在看' : '在看'}</span>
+                </Button>
               )}
-            >
-              <Heart className={cn("h-4 w-4", isWatching && "fill-current")} />
-              <span className="sr-only">{isWatching ? '取消在看' : '在看'}</span>
-            </Button>
-          )}
+            </div>
+          </div>
         </div>
       </CardHeader>
 

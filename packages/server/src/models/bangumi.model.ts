@@ -17,6 +17,14 @@ import { DATA_DIR, DATA_FILE } from '../config';
 import { flatten } from 'lodash';
 import pinyin from 'pinyin';
 
+// 图片缓存接口
+interface ImageCache {
+  [subjectId: string]: {
+    url: string;
+    timestamp: number;
+  };
+}
+
 export interface SiteMap {
   [SiteType.INFO]?: {
     [key: string]: SiteItem;
@@ -42,10 +50,16 @@ class BangumiModel {
   private dataFolderPath: string;
   private dataURL =
     'https://raw.staticdn.net/bangumi-data/bangumi-data/master/dist/data.json';
+  private imageCache: ImageCache = {};
+  private imageCachePath: string;
+  private readonly CACHE_EXPIRE_TIME = 7 * 24 * 60 * 60 * 1000; // 7天过期
+  private readonly BANGUMI_API_BASE = 'https://api.bgm.tv/v0';
 
   constructor() {
     this.dataFolderPath = DATA_DIR;
     this.dataPath = path.resolve(DATA_DIR, DATA_FILE);
+    this.imageCachePath = path.resolve(DATA_DIR, 'image-cache.json');
+    this.loadImageCache();
   }
 
   get isLoaded(): boolean {
@@ -132,6 +146,126 @@ class BangumiModel {
       (siteMap[type] || {})[siteName] = site;
     }
     this.siteMap = siteMap;
+  }
+
+  private async loadImageCache() {
+    try {
+      const statRes = await stat(this.imageCachePath);
+      const cacheExpireTime = Date.now() - this.CACHE_EXPIRE_TIME;
+      if (statRes.mtimeMs < cacheExpireTime) {
+        // 缓存过期，删除
+        await fse.unlink(this.imageCachePath);
+      } else {
+        // 读取缓存
+        const cacheData = await fse.readJSON(this.imageCachePath);
+        this.imageCache = cacheData;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  private async saveImageCache() {
+    try {
+      await fse.writeJSON(this.imageCachePath, this.imageCache);
+    } catch (e) {
+      console.error('Failed to save image cache:', e);
+    }
+  }
+
+  private getBangumiSubjectId(item: Item): string | null {
+    const bangumiSite = item.sites.find((site) => site.site === 'bangumi');
+    return bangumiSite?.id || null;
+  }
+
+  private async fetchBangumiImage(subjectId: string): Promise<string> {
+    const cacheKey = subjectId;
+    const now = Date.now();
+
+    // 检查缓存
+    if (
+      this.imageCache[cacheKey] &&
+      now - this.imageCache[cacheKey].timestamp < this.CACHE_EXPIRE_TIME
+    ) {
+      // 如果缓存中是默认图片，删除缓存并重新获取
+      if (
+        this.imageCache[cacheKey].url ===
+        'https://lain.bgm.tv/img/no_icon_subject.png'
+      ) {
+        delete this.imageCache[cacheKey];
+      } else {
+        return this.imageCache[cacheKey].url;
+      }
+    }
+
+    try {
+      // 使用重定向URL直接获取图片URL
+      const imageUrl = `${this.BANGUMI_API_BASE}/subjects/${subjectId}/image?type=large`;
+
+      // 发送请求获取重定向的图片URL
+      const response = await axios.get(imageUrl, {
+        maxRedirects: 0,
+        validateStatus: (status) => status === 302,
+        timeout: 5000,
+        headers: {
+          'User-Agent':
+            'bangumi-list-v3 (https://github.com/mercutio/bangumi-list-v3)',
+          Authorization: `Bearer ${process.env.BANGUMI_API_TOKEN || ''}`,
+        },
+      });
+
+      const finalImageUrl =
+        response.headers.location ||
+        `https://lain.bgm.tv/img/no_icon_subject.png`;
+
+      // 更新缓存（如果不是默认图片才缓存）
+      if (finalImageUrl !== 'https://lain.bgm.tv/img/no_icon_subject.png') {
+        this.imageCache[cacheKey] = {
+          url: finalImageUrl,
+          timestamp: now,
+        };
+
+        // 异步保存缓存，不阻塞
+        this.saveImageCache().catch(console.error);
+      }
+
+      return finalImageUrl;
+    } catch (error) {
+      console.error(`Failed to fetch image for subject ${subjectId}:`, error);
+      // 返回默认图片，但不缓存
+      const defaultUrl = 'https://lain.bgm.tv/img/no_icon_subject.png';
+      return defaultUrl;
+    }
+  }
+
+  public async enrichItemsWithImages(items: Item[]): Promise<Item[]> {
+    const enrichedItems = [...items];
+
+    // 并发获取图片，但限制并发数量以避免过载
+    const CONCURRENT_LIMIT = 5;
+    const chunks = [];
+
+    for (let i = 0; i < enrichedItems.length; i += CONCURRENT_LIMIT) {
+      chunks.push(enrichedItems.slice(i, i + CONCURRENT_LIMIT));
+    }
+
+    for (const chunk of chunks) {
+      await Promise.all(
+        chunk.map(async (item) => {
+          const subjectId = this.getBangumiSubjectId(item);
+          if (subjectId) {
+            try {
+              item.image = await this.fetchBangumiImage(subjectId);
+            } catch (error) {
+              console.error(`Failed to get image for item ${item.id}:`, error);
+              // 忽略错误，继续处理其他项目
+            }
+          }
+        })
+      );
+    }
+
+    return enrichedItems;
   }
 }
 

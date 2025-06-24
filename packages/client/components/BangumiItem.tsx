@@ -65,69 +65,95 @@ export default function BangumiItem(props: Props): JSX.Element {
 
   return (
     <article className={rootClassName}>
-      <header className={styles.header}>
-        <div className={styles.titleBox}>
-          <h3 className={styles.title}>{titleCN || item.title}</h3>
-          {titleCN ? (
-            <span className={styles.subTitle}>{item.title}</span>
-          ) : null}
-          {!isArchive && isNew ? (
-            <span className={styles.newMark}>new</span>
-          ) : null}
-        </div>
-        {isArchive ? null : (
-          <button
-            type="button"
-            className={styles.favButton}
-            aria-label={isWatching ? '取消在看' : '在看'}
-            title={isWatching ? '取消在看' : '在看'}
-            onClick={handleWatchingClick}
-          >
-            {isWatching ? (
-              <FavIconFull className={styles.favIcon} />
-            ) : (
-              <FavIconEmpty className={styles.favIcon} />
-            )}
-          </button>
+      <div className={styles.content}>
+        {/* 番组图片 */}
+        {item.image && (
+          <div className={styles.imageContainer}>
+            <img
+              src={item.image}
+              alt={titleCN || item.title}
+              className={styles.image}
+              loading="lazy"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
+            />
+          </div>
         )}
-      </header>
-      <dl className={styles.inner}>
-        <div className={styles.jpTime}>
-          <dt>日本</dt>
-          <dd>{broadcastTimeString.jp || '暂无'}</dd>
-        </div>
-        <div className={styles.cnTime}>
-          <dt>大陆</dt>
-          <dd>{broadcastTimeString.cn || '暂无'}</dd>
-        </div>
-        <div className={styles.start}>
-          <dt>开播</dt>
-          <dd>{beginString}</dd>
-        </div>
-        <div className={styles.info}>
-          <dt>信息</dt>
-          <dd>
-            <ul>
-              {item.officialSite ? (
-                <li>
-                  <a href={item.officialSite} rel="noopener" target="_blank">
-                    官网
-                  </a>
-                </li>
+
+        <div className={styles.main}>
+          <header className={styles.header}>
+            <div className={styles.titleBox}>
+              <h3 className={styles.title}>{titleCN || item.title}</h3>
+              {titleCN ? (
+                <span className={styles.subTitle}>{item.title}</span>
               ) : null}
-              {infoSites}
-            </ul>
-          </dd>
+              {!isArchive && isNew ? (
+                <span className={styles.newMark}>new</span>
+              ) : null}
+            </div>
+            {isArchive ? null : (
+              <button
+                type="button"
+                className={styles.favButton}
+                aria-label={isWatching ? '取消在看' : '在看'}
+                title={isWatching ? '取消在看' : '在看'}
+                onClick={handleWatchingClick}
+              >
+                {isWatching ? (
+                  <FavIconFull className={styles.favIcon} />
+                ) : (
+                  <FavIconEmpty className={styles.favIcon} />
+                )}
+              </button>
+            )}
+          </header>
+          <dl className={styles.inner}>
+            <div className={styles.jpTime}>
+              <dt>日本</dt>
+              <dd>{broadcastTimeString.jp || '暂无'}</dd>
+            </div>
+            <div className={styles.cnTime}>
+              <dt>大陆</dt>
+              <dd>{broadcastTimeString.cn || '暂无'}</dd>
+            </div>
+            <div className={styles.start}>
+              <dt>开播</dt>
+              <dd>{beginString}</dd>
+            </div>
+            <div className={styles.info}>
+              <dt>信息</dt>
+              <dd>
+                <ul>
+                  {item.officialSite ? (
+                    <li>
+                      <a
+                        href={item.officialSite}
+                        rel="noopener"
+                        target="_blank"
+                      >
+                        官网
+                      </a>
+                    </li>
+                  ) : null}
+                  {infoSites}
+                </ul>
+              </dd>
+            </div>
+            <div className={styles.onair}>
+              <dt>配信</dt>
+              <dd>{onairSites.length ? <ul>{onairSites}</ul> : '暂无'}</dd>
+            </div>
+            <div className={styles.resource}>
+              <dt>下载</dt>
+              <dd>
+                {resourceSites.length ? <ul>{resourceSites}</ul> : '暂无'}
+              </dd>
+            </div>
+          </dl>
         </div>
-        <div className={styles.onair}>
-          <dt>配信</dt>
-          <dd>{onairSites.length ? <ul>{onairSites}</ul> : '暂无'}</dd>
-        </div>
-        <div className={styles.resource}>
-          <dt>下载</dt>
-          <dd>{resourceSites.length ? <ul>{resourceSites}</ul> : '暂无'}</dd>
-        </div>
-      </dl>
+      </div>
     </article>
   );
 }

@@ -47,8 +47,12 @@ export async function getArchive(req: Request, res: Response): Promise<void> {
     res.send({ items: [] });
     return;
   }
+
+  const items = seasonIds[season].map((id) => itemEntities[id]);
+  const enrichedItems = await bangumiModel.enrichItemsWithImages(items);
+
   res.send({
-    items: seasonIds[season].map((id) => itemEntities[id]),
+    items: enrichedItems,
   });
 }
 
@@ -56,13 +60,17 @@ export async function getOnAir(req: Request, res: Response): Promise<void> {
   const { noEndDateIds, itemEntities } = bangumiModel;
   const now = moment();
 
+  const items = noEndDateIds
+    .map((id) => itemEntities[id])
+    .filter((item) => {
+      const { begin } = item;
+      const beginDate = moment(begin);
+      return beginDate.isBefore(now);
+    });
+
+  const enrichedItems = await bangumiModel.enrichItemsWithImages(items);
+
   res.send({
-    items: noEndDateIds
-      .map((id) => itemEntities[id])
-      .filter((item) => {
-        const { begin } = item;
-        const beginDate = moment(begin);
-        return beginDate.isBefore(now);
-      }),
+    items: enrichedItems,
   });
 }

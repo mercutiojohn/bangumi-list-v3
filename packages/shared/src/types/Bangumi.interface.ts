@@ -48,6 +48,7 @@ export interface Item {
   end: string;
   comment?: string;
   sites: BangumiSite[];
+  image?: string;
 }
 
 export interface ItemList {

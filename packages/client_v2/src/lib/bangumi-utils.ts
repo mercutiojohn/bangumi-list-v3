@@ -3,7 +3,7 @@ import { get } from 'lodash';
 import { Item, SiteMeta } from 'bangumi-list-v3-shared';
 
 // Weekday enum
-export const enum Weekday {
+export enum Weekday {
   SUNDAY = 0,
   MONDAY = 1,
   TUESDAY = 2,
@@ -15,29 +15,11 @@ export const enum Weekday {
 }
 
 // TODO: 临时的 SiteType 枚举定义，直到 shared 包的导入问题解决
-export const enum SiteType {
+export enum SiteType {
   INFO = 'info',
   ONAIR = 'onair',
   RESOURCE = 'resource',
 }
-
-// Helper function to format broadcast string to time string
-const broadcastToTimeString = (broadcast?: string, begin?: string): string => {
-  let time = '';
-  if (broadcast) {
-    time = broadcast.split('/')[1];
-  } else if (begin) {
-    time = begin;
-  }
-  if (!time) return '';
-
-  const date = new Date(time);
-  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-  const weekday = weekdays[date.getDay()];
-  const timeStr = format(date, 'HH:mm');
-
-  return `${weekday} ${timeStr}`;
-};
 
 // Helper function to get broadcast date
 export const getBroadcastDate = (item: Item): Date => {
@@ -46,40 +28,6 @@ export const getBroadcastDate = (item: Item): Date => {
     return new Date(broadcast.split('/')[1]);
   }
   return new Date(begin);
-};
-
-// Get broadcast time string
-export const getBroadcastTimeString = (item: Item, siteMeta: SiteMeta = {}) => {
-  const result = { jp: '', cn: '' };
-
-  // Get JP broadcast time
-  result.jp = broadcastToTimeString(item.broadcast, item.begin);
-
-  // Get CN broadcast time from item sites
-  for (const site of item.sites) {
-    if (site.broadcast) {
-      result.cn = broadcastToTimeString(site.broadcast, item.begin);
-      break;
-    }
-  }
-
-  return result;
-};
-
-// Get broadcast time pretty-print string
-export const getBroadcastTimePrettyString = (item: Item, siteMeta: SiteMeta = {}): string => {
-  const broadcastTimes = getBroadcastTimeString(item, siteMeta);
-  const parts: string[] = [];
-
-  if (broadcastTimes.jp) {
-    parts.push(`日本\n${broadcastTimes.jp}`);
-  }
-
-  if (broadcastTimes.cn) {
-    parts.push(`大陆\n${broadcastTimes.cn}`);
-  }
-
-  return parts.join('\n');
 };
 
 // Filter functions
@@ -132,6 +80,58 @@ export const hoistWatchingItems = (items: Item[], watchingIds: string[]): Item[]
   const watchingItems = items.filter(item => item.id && watchingIds.includes(item.id));
   const nonWatchingItems = items.filter(item => !item.id || !watchingIds.includes(item.id));
   return [...watchingItems, ...nonWatchingItems];
+};
+
+// Get broadcast time pretty-print string
+export const getBroadcastTimePrettyString = (item: Item, siteMeta: SiteMeta = {}): string => {
+  const broadcastTimes = getBroadcastTimeString(item, siteMeta);
+  const parts: string[] = [];
+
+  if (broadcastTimes.jp) {
+    parts.push(`日本\n${broadcastTimes.jp}`);
+  }
+
+  if (broadcastTimes.cn) {
+    parts.push(`大陆\n${broadcastTimes.cn}`);
+  }
+
+  return parts.join('\n');
+};
+
+// Helper function to format broadcast string to time string
+const broadcastToTimeString = (broadcast?: string, begin?: string): string => {
+  let time = '';
+  if (broadcast) {
+    time = broadcast.split('/')[1];
+  } else if (begin) {
+    time = begin;
+  }
+  if (!time) return '';
+
+  const date = new Date(time);
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const weekday = weekdays[date.getDay()];
+  const timeStr = format(date, 'HH:mm');
+
+  return `${weekday} ${timeStr}`;
+};
+
+// Get broadcast time string (updated implementation)
+export const getBroadcastTimeString = (item: Item, siteMeta: SiteMeta = {}) => {
+  const result = { jp: '', cn: '' };
+
+  // Get JP broadcast time
+  result.jp = broadcastToTimeString(item.broadcast, item.begin);
+
+  // Get CN broadcast time from item sites
+  for (const site of item.sites) {
+    if (site.broadcast) {
+      result.cn = broadcastToTimeString(site.broadcast, item.begin);
+      break;
+    }
+  }
+
+  return result;
 };
 
 // Format season string
