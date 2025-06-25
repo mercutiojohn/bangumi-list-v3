@@ -8,7 +8,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Badge
+  Badge,
+  CacheManager
 } from "@/components";
 import {
   Weekday,
@@ -20,6 +21,7 @@ import {
   hoistWatchingItems,
   SiteType
 } from "@/lib/bangumi-utils";
+import { Settings } from "lucide-react";
 
 // 站点域名模板（复刻原client的逻辑）
 const bangumiTemplates = {
@@ -47,7 +49,8 @@ function App() {
   const [currentTab, setCurrentTab] = useState<Weekday>(new Date().getDay());
   const [searchText, setSearchText] = useState<string>('');
   const [hoistWatchingIds, setHoistWatchingIds] = useState<string[]>([]);
-  const [activeSiteFilter, setActiveSiteFilter] = useState<string>(''); // 新增配信筛选状态
+  const [activeSiteFilter, setActiveSiteFilter] = useState<string>('');
+  const [showCacheManager, setShowCacheManager] = useState<boolean>(false);
 
   const isInSearch = !!searchText;
 
@@ -130,7 +133,7 @@ function App() {
     common.hoistWatching,
     bangumi.watching,
     hoistWatchingIds,
-    activeSiteFilter, // 新增依赖
+    activeSiteFilter,
   ]);
 
   // 更新置顶列表
@@ -178,11 +181,25 @@ function App() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* 页面标题 */}
+      {/* 页面标题和管理按钮 */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold">每日放送</h1>
+        <div className="flex items-center justify-center gap-4">
+          <h1 className="text-4xl font-bold">每日放送</h1>
+          <button
+            onClick={() => setShowCacheManager(!showCacheManager)}
+            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+            title="缓存管理"
+          >
+            <Settings className="h-5 w-5 text-muted-foreground" />
+          </button>
+        </div>
         <p className="text-muted-foreground">方便快捷的版权动画播放地址聚合站</p>
       </div>
+
+      {/* 缓存管理器 */}
+      {showCacheManager && (
+        <CacheManager />
+      )}
 
       {/* 搜索栏 */}
       <Top onSearchInput={handleSearchInput} />

@@ -16,6 +16,8 @@ import md5 from 'md5';
 import { DATA_DIR, DATA_FILE } from '../config';
 import { flatten } from 'lodash';
 import pinyin from 'pinyin';
+// 添加定时任务库
+import * as cron from 'node-cron';
 
 // 图片缓存接口
 interface ImageCache {
@@ -178,6 +180,16 @@ export interface SiteMap {
   };
 }
 
+// 添加失败项接口
+interface FailedItem {
+  id: string;
+  type: 'image' | 'pv';
+  subjectId?: string;
+  mediaId?: string;
+  retryCount: number;
+  lastRetryTime: number;
+}
+
 class BangumiModel {
   public seasons: string[] = [];
   public seasonIds: { [key: string]: string[] } = {};
@@ -199,6 +211,10 @@ class BangumiModel {
   private readonly BANGUMI_API_BASE = 'https://api.bgm.tv/v0';
   private readonly BILIBILI_API_BASE = 'https://api.bilibili.com';
   private readonly BILIPLUS_API_BASE = 'https://www.biliplus.com/api/bangumi';
+  private cacheRefreshTask?: cron.ScheduledTask;
+  private failedItems: FailedItem[] = [];
+  private retryTimer?: NodeJS.Timeout;
+  private isRefreshing = false;
 
   constructor() {
     this.dataFolderPath = DATA_DIR;
@@ -207,42 +223,307 @@ class BangumiModel {
     this.pvBvidCachePath = path.resolve(DATA_DIR, 'pv-bvid-cache.json');
     this.loadImageCache();
     this.loadPvBvidCache();
+    this.startCacheRefreshScheduler();
+  }
+
+  // 启动缓存刷新调度器
+  private startCacheRefreshScheduler() {
+    // 每天凌晨2点执行缓存刷新
+    this.cacheRefreshTask = cron.schedule(
+      '0 2 * * *',
+      async () => {
+        console.log('[Cache] Starting daily cache refresh...');
+        try {
+          await this.refreshAllCaches();
+          console.log('[Cache] Daily cache refresh completed successfully');
+        } catch (error) {
+          console.error('[Cache] Daily cache refresh failed:', error);
+        }
+      },
+      {
+        scheduled: true,
+        timezone: 'Asia/Shanghai',
+      }
+    );
+
+    console.log(
+      '[Cache] Cache refresh scheduler started, will run daily at 2:00 AM'
+    );
+  }
+
+  // 启动时初始刷新
+  public async initialCacheRefresh(): Promise<void> {
+    if (!this.data) {
+      console.log('[Cache] No data loaded, skipping initial cache refresh');
+      return;
+    }
+
+    console.log('[Cache] Starting initial cache refresh on startup...');
+    try {
+      await this.refreshAllCaches();
+      console.log('[Cache] Initial cache refresh completed successfully');
+    } catch (error) {
+      console.error('[Cache] Initial cache refresh failed:', error);
+    }
+  }
+
+  // 刷新所有缓存
+  public async refreshAllCaches(): Promise<void> {
+    if (this.isRefreshing) {
+      console.log('[Cache] Cache refresh already in progress, skipping...');
+      return;
+    }
+
+    this.isRefreshing = true;
+
+    try {
+      if (!this.data) {
+        console.log('[Cache] No data loaded, skipping cache refresh');
+        return;
+      }
+
+      const { items } = this.data;
+      const CONCURRENT_LIMIT = 3; // 减少并发数以避免API限制
+      const chunks = [];
+
+      // 分批处理所有项目
+      for (let i = 0; i < items.length; i += CONCURRENT_LIMIT) {
+        chunks.push(items.slice(i, i + CONCURRENT_LIMIT));
+      }
+
+      let processedCount = 0;
+      let successCount = 0;
+      const totalCount = items.length;
+      const currentFailedItems: FailedItem[] = [];
+
+      console.log(
+        `[Cache] Starting to refresh cache for ${totalCount} items...`
+      );
+
+      for (const chunk of chunks) {
+        await Promise.all(
+          chunk.map(async (item) => {
+            try {
+              // 刷新图片缓存
+              const subjectId = this.getBangumiSubjectId(item);
+              if (subjectId) {
+                try {
+                  await this.fetchBangumiImage(subjectId);
+                  successCount++;
+                } catch (error) {
+                  console.error(
+                    `[Cache] Failed to refresh image for item ${item.title} (${subjectId}):`,
+                    error
+                  );
+                  currentFailedItems.push({
+                    id: item.id,
+                    type: 'image',
+                    subjectId,
+                    retryCount: 0,
+                    lastRetryTime: Date.now(),
+                  });
+                }
+              }
+
+              // 刷新 PV bvid 缓存
+              const mediaId = this.getBilibiliMediaId(item);
+              if (mediaId) {
+                try {
+                  await this.fetchPvBvid(mediaId);
+                  successCount++;
+                } catch (error) {
+                  console.error(
+                    `[Cache] Failed to refresh PV for item ${item.title} (${mediaId}):`,
+                    error
+                  );
+                  currentFailedItems.push({
+                    id: item.id,
+                    type: 'pv',
+                    mediaId,
+                    retryCount: 0,
+                    lastRetryTime: Date.now(),
+                  });
+                }
+              }
+
+              processedCount++;
+              if (processedCount % 50 === 0) {
+                console.log(
+                  `[Cache] Progress: ${processedCount}/${totalCount} items processed, ${successCount} successful`
+                );
+              }
+            } catch (error) {
+              console.error(
+                `[Cache] Failed to process item ${item.title}:`,
+                error
+              );
+            }
+          })
+        );
+
+        // 在批次之间添加延迟，避免API限制
+        if (chunks.indexOf(chunk) < chunks.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      console.log(
+        `[Cache] Cache refresh completed: ${processedCount}/${totalCount} items processed, ${successCount} successful, ${currentFailedItems.length} failed`
+      );
+
+      // 更新失败项列表
+      this.failedItems = currentFailedItems;
+
+      // 如果有失败项，启动重试机制
+      if (this.failedItems.length > 0) {
+        console.log(
+          `[Cache] Starting retry mechanism for ${this.failedItems.length} failed items`
+        );
+        this.scheduleRetry();
+      }
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  // 调度重试失败项
+  private scheduleRetry(): void {
+    // 清除之前的重试定时器
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+    }
+
+    // 1分钟后重试
+    this.retryTimer = setTimeout(async () => {
+      await this.retryFailedItems();
+    }, 60 * 1000);
+  }
+
+  // 重试失败项
+  private async retryFailedItems(): Promise<void> {
+    if (this.failedItems.length === 0) {
+      console.log('[Cache] No failed items to retry');
+      return;
+    }
+
+    console.log(`[Cache] Retrying ${this.failedItems.length} failed items...`);
+
+    const itemsToRetry = [...this.failedItems];
+    const stillFailedItems: FailedItem[] = [];
+    let retrySuccessCount = 0;
+
+    for (const failedItem of itemsToRetry) {
+      try {
+        let success = false;
+
+        if (failedItem.type === 'image' && failedItem.subjectId) {
+          await this.fetchBangumiImage(failedItem.subjectId);
+          success = true;
+          retrySuccessCount++;
+          console.log(
+            `[Cache] Retry success: image for ${failedItem.id} (${failedItem.subjectId})`
+          );
+        } else if (failedItem.type === 'pv' && failedItem.mediaId) {
+          await this.fetchPvBvid(failedItem.mediaId);
+          success = true;
+          retrySuccessCount++;
+          console.log(
+            `[Cache] Retry success: PV for ${failedItem.id} (${failedItem.mediaId})`
+          );
+        }
+
+        if (!success) {
+          // 如果重试次数超过5次，放弃重试
+          if (failedItem.retryCount >= 5) {
+            console.log(
+              `[Cache] Giving up retry for ${failedItem.type} ${failedItem.id} after ${failedItem.retryCount} attempts`
+            );
+          } else {
+            stillFailedItems.push({
+              ...failedItem,
+              retryCount: failedItem.retryCount + 1,
+              lastRetryTime: Date.now(),
+            });
+          }
+        }
+      } catch (error) {
+        console.error(
+          `[Cache] Retry failed for ${failedItem.type} ${failedItem.id}:`,
+          error
+        );
+
+        // 如果重试次数超过5次，放弃重试
+        if (failedItem.retryCount >= 5) {
+          console.log(
+            `[Cache] Giving up retry for ${failedItem.type} ${failedItem.id} after ${failedItem.retryCount} attempts`
+          );
+        } else {
+          stillFailedItems.push({
+            ...failedItem,
+            retryCount: failedItem.retryCount + 1,
+            lastRetryTime: Date.now(),
+          });
+        }
+      }
+
+      // 在每个重试之间添加小延迟
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    console.log(
+      `[Cache] Retry completed: ${retrySuccessCount} successful, ${stillFailedItems.length} still failed`
+    );
+
+    // 更新失败项列表
+    this.failedItems = stillFailedItems;
+
+    // 如果还有失败项，继续调度重试
+    if (this.failedItems.length > 0) {
+      console.log(
+        `[Cache] Scheduling next retry for ${this.failedItems.length} items in 1 minute`
+      );
+      this.scheduleRetry();
+    } else {
+      console.log('[Cache] All failed items have been successfully retried');
+    }
+  }
+
+  // 手动触发缓存刷新（用于API调用）
+  public async triggerCacheRefresh(): Promise<void> {
+    console.log('[Cache] Manual cache refresh triggered');
+    await this.refreshAllCaches();
+  }
+
+  // 停止缓存刷新调度器
+  public stopCacheRefreshScheduler(): void {
+    if (this.cacheRefreshTask) {
+      this.cacheRefreshTask.stop();
+      this.cacheRefreshTask = undefined;
+      console.log('[Cache] Cache refresh scheduler stopped');
+    }
+
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = undefined;
+      console.log('[Cache] Retry timer cleared');
+    }
+  }
+
+  // 获取当前失败项状态
+  public getFailedItemsStatus(): { count: number; items: FailedItem[] } {
+    return {
+      count: this.failedItems.length,
+      items: [...this.failedItems],
+    };
+  }
+
+  // 添加公共的 getter 方法
+  public get isRefreshingCache(): boolean {
+    return this.isRefreshing;
   }
 
   get isLoaded(): boolean {
     return !!this.version;
-  }
-
-  public async update(force = true) {
-    const newDataPath = this.dataPath + `.${Date.now()}`;
-    let skip = false;
-    await fse.ensureDir(this.dataFolderPath);
-    if (!force) {
-      try {
-        await fse.access(this.dataPath, constants.R_OK);
-        skip = true;
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    if (!skip) {
-      const resp: AxiosResponse<Stream> = await axios({
-        url: this.dataURL,
-        method: 'GET',
-        responseType: 'stream',
-      });
-      await new Promise((resolve) => {
-        resp.data.on('end', async () => {
-          await fse.rename(newDataPath, this.dataPath);
-          resolve(undefined);
-        });
-        resp.data.pipe(fs.createWriteStream(newDataPath));
-      });
-    }
-
-    await this.read();
-    this.process();
   }
 
   private async read() {
@@ -525,50 +806,75 @@ class BangumiModel {
     }
   }
 
+  // 修改enrichItemsWithImages方法，只从缓存获取数据
   public async enrichItemsWithImages(items: Item[]): Promise<Item[]> {
     const enrichedItems = [...items];
 
-    // 并发获取图片和 PV bvid，但限制并发数量以避免过载
-    const CONCURRENT_LIMIT = 5;
-    const chunks = [];
+    for (const item of enrichedItems) {
+      // 只从缓存获取图片
+      const subjectId = this.getBangumiSubjectId(item);
+      if (subjectId && this.imageCache[subjectId]) {
+        const cached = this.imageCache[subjectId];
+        // const now = Date.now();
 
-    for (let i = 0; i < enrichedItems.length; i += CONCURRENT_LIMIT) {
-      chunks.push(enrichedItems.slice(i, i + CONCURRENT_LIMIT));
-    }
+        // 检查缓存是否过期
+        // if (now - cached.timestamp < this.CACHE_EXPIRE_TIME) {
+        item.image = cached.url;
+        // }
+      }
 
-    for (const chunk of chunks) {
-      await Promise.all(
-        chunk.map(async (item) => {
-          // 获取图片
-          const subjectId = this.getBangumiSubjectId(item);
-          if (subjectId) {
-            try {
-              item.image = await this.fetchBangumiImage(subjectId);
-            } catch (error) {
-              console.error(`Failed to get image for item ${item.id}:`, error);
-              // 忽略错误，继续处理其他项目
-            }
-          }
+      // 只从缓存获取 PV bvid
+      const mediaId = this.getBilibiliMediaId(item);
+      if (mediaId && this.pvBvidCache[mediaId]) {
+        const cached = this.pvBvidCache[mediaId];
+        // const now = Date.now();
 
-          // 获取 PV bvid
-          const mediaId = this.getBilibiliMediaId(item);
-          if (mediaId) {
-            try {
-              const cachedBvid = await this.fetchPvBvid(mediaId);
-              item.previewEmbedLink = `https://player.bilibili.com/player.html?isOutside=true&bvid=${cachedBvid}&high_quality=1`;
-            } catch (error) {
-              console.error(
-                `Failed to get PV bvid for item ${item.id}:`,
-                error
-              );
-              // 忽略错误，继续处理其他项目
-            }
-          }
-        })
-      );
+        // 检查缓存是否过期
+        // if (now - cached.timestamp < this.CACHE_EXPIRE_TIME) {
+        item.previewEmbedLink = `https://player.bilibili.com/player.html?isOutside=true&bvid=${cached.bvid}&high_quality=1`;
+        // }
+      }
     }
 
     return enrichedItems;
+  }
+
+  // 修改update方法，在数据加载完成后触发初始缓存刷新
+  public async update(force = true) {
+    const newDataPath = this.dataPath + `.${Date.now()}`;
+    let skip = false;
+    await fse.ensureDir(this.dataFolderPath);
+    if (!force) {
+      try {
+        await fse.access(this.dataPath, constants.R_OK);
+        skip = true;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!skip) {
+      const resp: AxiosResponse<Stream> = await axios({
+        url: this.dataURL,
+        method: 'GET',
+        responseType: 'stream',
+      });
+      await new Promise((resolve) => {
+        resp.data.on('end', async () => {
+          await fse.rename(newDataPath, this.dataPath);
+          resolve(undefined);
+        });
+        resp.data.pipe(fs.createWriteStream(newDataPath));
+      });
+    }
+
+    await this.read();
+    this.process();
+
+    // 在数据加载完成后触发初始缓存刷新
+    setTimeout(() => {
+      this.initialCacheRefresh().catch(console.error);
+    }, 1000); // 延迟1秒执行，确保其他初始化完成
   }
 }
 

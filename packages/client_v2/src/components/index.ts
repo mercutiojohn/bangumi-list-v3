@@ -5,6 +5,7 @@ export { default as BangumiLinkItem } from './BangumiLinkItem';
 export { default as WeekdayTab } from './WeekdayTab';
 export { default as SearchInput } from './SearchInput';
 export { default as Top } from './Top';
+export { CacheManager } from './CacheManager';
 
 // UI components re-exports
 export * from './ui/button';

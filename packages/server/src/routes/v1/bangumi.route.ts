@@ -46,4 +46,12 @@ router.get(
   }
 );
 
+router.post('/refresh-cache', async (req: Request, res: Response) => {
+  await bangumiController.refreshCache(req, res);
+});
+
+router.get('/cache-status', async (req: Request, res: Response) => {
+  await bangumiController.getCacheStatus(req, res);
+});
+
 export default router;

@@ -33,6 +33,7 @@
     "lodash": "^4.17.21",
     "md5": "^2.3.0",
     "moment": "^2.29.1",
+    "node-cron": "^4.1.1",
     "pino-http": "^5.8.0",
     "pino-pretty": "^7.1.0",
     "pinyin": "^2.10.2",
@@ -45,6 +46,7 @@
     "@types/jsonwebtoken": "^8.5.5",
     "@types/lodash": "^4.14.175",
     "@types/md5": "^2.3.1",
+    "@types/node-cron": "^3.0.11",
     "@types/pino-http": "^5.8.0",
     "@types/pinyin": "^2.10.0"
   },

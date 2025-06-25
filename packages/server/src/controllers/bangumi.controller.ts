@@ -40,6 +40,34 @@ export async function site(req: Request, res: Response): Promise<void> {
   res.send(result);
 }
 
+// 添加手动刷新缓存的接口
+export async function refreshCache(req: Request, res: Response): Promise<void> {
+  try {
+    await bangumiModel.triggerCacheRefresh();
+    res.send({ message: 'Cache refresh completed successfully' });
+  } catch (error) {
+    console.error('Manual cache refresh failed:', error);
+    res.status(500).send({ error: 'Cache refresh failed' });
+  }
+}
+
+// 添加获取缓存状态的接口
+export async function getCacheStatus(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const failedStatus = bangumiModel.getFailedItemsStatus();
+    res.send({
+      isRefreshing: bangumiModel.isRefreshingCache,
+      failedItems: failedStatus,
+    });
+  } catch (error) {
+    console.error('Failed to get cache status:', error);
+    res.status(500).send({ error: 'Failed to get cache status' });
+  }
+}
+
 export async function getArchive(req: Request, res: Response): Promise<void> {
   const { season } = req.params;
   const { seasonIds, itemEntities } = bangumiModel;
@@ -49,6 +77,7 @@ export async function getArchive(req: Request, res: Response): Promise<void> {
   }
 
   const items = seasonIds[season].map((id) => itemEntities[id]);
+  // 现在只从缓存获取数据，不进行实时API调用
   const enrichedItems = await bangumiModel.enrichItemsWithImages(items);
 
   res.send({
@@ -68,6 +97,7 @@ export async function getOnAir(req: Request, res: Response): Promise<void> {
       return beginDate.isBefore(now);
     });
 
+  // 现在只从缓存获取数据，不进行实时API调用
   const enrichedItems = await bangumiModel.enrichItemsWithImages(items);
 
   res.send({
