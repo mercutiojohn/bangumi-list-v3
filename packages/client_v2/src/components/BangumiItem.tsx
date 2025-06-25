@@ -120,22 +120,13 @@ export default function BangumiItem({
             </div>
           </PopoverTrigger>
           <PopoverContent className="w-96 p-0" align="start" side="right">
-            <div className="space-y-3 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Play className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">PV 预览</span>
-              </div>
-              <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                <iframe
-                  src={item.previewEmbedLink}
-                  className="w-full h-full border-0"
-                  allowFullScreen
-                  title={`${titleCN || item.title} PV`}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {titleCN || item.title} - PV视频
-              </p>
+            <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+              <iframe
+                src={item.previewEmbedLink}
+                className="w-full h-full border-0"
+                allowFullScreen
+                title={`${titleCN || item.title} PV`}
+              />
             </div>
           </PopoverContent>
         </Popover>
