@@ -50,6 +50,7 @@ export interface Item {
   sites: BangumiSite[];
   image?: string;
   previewEmbedLink?: string;
+  rssContent?: RssContent;
 }
 
 export interface ItemList {
@@ -74,4 +75,26 @@ export interface OnAirData {
 export interface SeasonData {
   version: number;
   items: string[];
+}
+
+// RSS内容接口
+interface RssContent {
+  title: string;
+  description: string;
+  link: string;
+  items: RssItem[];
+}
+
+// RSS项目接口
+interface RssItem {
+  title: string;
+  description: string;
+  link: string;
+  pubDate: string;
+  guid?: string;
+  enclosure?: {
+    url: string;
+    type: string;
+    length: string;
+  };
 }

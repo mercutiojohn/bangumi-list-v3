@@ -18,6 +18,8 @@ import { flatten } from 'lodash';
 import pinyin from 'pinyin';
 // 添加定时任务库
 import * as cron from 'node-cron';
+// 添加XML解析库
+import * as xml2js from 'xml2js';
 
 // 图片缓存接口
 interface ImageCache {
@@ -32,6 +34,36 @@ interface PvBvidCache {
   [mediaId: string]: {
     bvid: string;
     timestamp: number;
+  };
+}
+
+// RSS缓存接口
+interface RssCache {
+  [rssUrl: string]: {
+    content: RssContent;
+    timestamp: number;
+  };
+}
+
+// RSS内容接口
+interface RssContent {
+  title: string;
+  description: string;
+  link: string;
+  items: RssItem[];
+}
+
+// RSS项目接口
+interface RssItem {
+  title: string;
+  description: string;
+  link: string;
+  pubDate: string;
+  guid?: string;
+  enclosure?: {
+    url: string;
+    type: string;
+    length: string;
   };
 }
 
@@ -183,9 +215,10 @@ export interface SiteMap {
 // 添加失败项接口
 interface FailedItem {
   id: string;
-  type: 'image' | 'pv';
+  type: 'image' | 'pv' | 'rss';
   subjectId?: string;
   mediaId?: string;
+  rssUrl?: string;
   retryCount: number;
   lastRetryTime: number;
 }
@@ -207,7 +240,10 @@ class BangumiModel {
   private imageCachePath: string;
   private pvBvidCache: PvBvidCache = {};
   private pvBvidCachePath: string;
+  private rssCache: RssCache = {};
+  private rssCachePath: string;
   private readonly CACHE_EXPIRE_TIME = 7 * 24 * 60 * 60 * 1000; // 7天过期
+  private readonly RSS_CACHE_EXPIRE_TIME = 6 * 60 * 60 * 1000; // RSS缓存6小时过期
   private readonly BANGUMI_API_BASE = 'https://api.bgm.tv/v0';
   private readonly BILIBILI_API_BASE = 'https://api.bilibili.com';
   private readonly BILIPLUS_API_BASE = 'https://www.biliplus.com/api/bangumi';
@@ -221,9 +257,32 @@ class BangumiModel {
     this.dataPath = path.resolve(DATA_DIR, DATA_FILE);
     this.imageCachePath = path.resolve(DATA_DIR, 'image-cache.json');
     this.pvBvidCachePath = path.resolve(DATA_DIR, 'pv-bvid-cache.json');
+    this.rssCachePath = path.resolve(DATA_DIR, 'rss-cache.json');
     this.loadImageCache();
     this.loadPvBvidCache();
+    this.loadRssCache();
     this.startCacheRefreshScheduler();
+  }
+
+  // 获取当前季度
+  private getCurrentSeason(): string {
+    return moment().format('YYYY[q]Q');
+  }
+
+  // 判断是否为当季度新番
+  private isCurrentSeasonItem(item: Item): boolean {
+    const { begin } = item;
+    const beginDate = moment(begin);
+    const itemSeason = beginDate.format('YYYY[q]Q');
+    const currentSeason = this.getCurrentSeason();
+    return itemSeason === currentSeason;
+  }
+
+  // 获取当季度新番列表
+  private getCurrentSeasonItems(): Item[] {
+    if (!this.data) return [];
+
+    return this.data.items.filter((item) => this.isCurrentSeasonItem(item));
   }
 
   // 启动缓存刷新调度器
@@ -232,12 +291,20 @@ class BangumiModel {
     this.cacheRefreshTask = cron.schedule(
       '0 2 * * *',
       async () => {
-        console.log('[Cache] Starting daily cache refresh...');
+        const currentSeason = this.getCurrentSeason();
+        console.log(
+          `[Cache] Starting daily cache refresh for current season (${currentSeason})...`
+        );
         try {
           await this.refreshAllCaches();
-          console.log('[Cache] Daily cache refresh completed successfully');
+          console.log(
+            `[Cache] Daily cache refresh for current season (${currentSeason}) completed successfully`
+          );
         } catch (error) {
-          console.error('[Cache] Daily cache refresh failed:', error);
+          console.error(
+            `[Cache] Daily cache refresh for current season (${currentSeason}) failed:`,
+            error
+          );
         }
       },
       {
@@ -246,7 +313,7 @@ class BangumiModel {
     );
 
     console.log(
-      '[Cache] Cache refresh scheduler started, will run daily at 2:00 AM'
+      '[Cache] Cache refresh scheduler started, will refresh current season items daily at 2:00 AM'
     );
   }
 
@@ -257,12 +324,20 @@ class BangumiModel {
       return;
     }
 
-    console.log('[Cache] Starting initial cache refresh on startup...');
+    const currentSeason = this.getCurrentSeason();
+    console.log(
+      `[Cache] Starting initial cache refresh for current season (${currentSeason}) on startup...`
+    );
     try {
       await this.refreshAllCaches();
-      console.log('[Cache] Initial cache refresh completed successfully');
+      console.log(
+        `[Cache] Initial cache refresh for current season (${currentSeason}) completed successfully`
+      );
     } catch (error) {
-      console.error('[Cache] Initial cache refresh failed:', error);
+      console.error(
+        `[Cache] Initial cache refresh for current season (${currentSeason}) failed:`,
+        error
+      );
     }
   }
 
@@ -281,23 +356,38 @@ class BangumiModel {
         return;
       }
 
-      const { items } = this.data;
-      const CONCURRENT_LIMIT = 3; // 减少并发数以避免API限制
+      // 只获取当季度新番
+      const currentSeasonItems = this.getCurrentSeasonItems();
+      const currentSeason = this.getCurrentSeason();
+
+      console.log(`[Cache] Current season: ${currentSeason}`);
+      console.log(
+        `[Cache] Found ${currentSeasonItems.length} current season items out of ${this.data.items.length} total items`
+      );
+
+      if (currentSeasonItems.length === 0) {
+        console.log(
+          '[Cache] No current season items found, skipping cache refresh'
+        );
+        return;
+      }
+
+      const CONCURRENT_LIMIT = 2;
       const chunks = [];
 
-      // 分批处理所有项目
-      for (let i = 0; i < items.length; i += CONCURRENT_LIMIT) {
-        chunks.push(items.slice(i, i + CONCURRENT_LIMIT));
+      // 分批处理当季度新番
+      for (let i = 0; i < currentSeasonItems.length; i += CONCURRENT_LIMIT) {
+        chunks.push(currentSeasonItems.slice(i, i + CONCURRENT_LIMIT));
       }
 
       let processedCount = 0;
       let successCount = 0;
       let skippedCount = 0;
-      const totalCount = items.length;
+      const totalCount = currentSeasonItems.length;
       const currentFailedItems: FailedItem[] = [];
 
       console.log(
-        `[Cache] Starting to refresh cache for ${totalCount} items...`
+        `[Cache] Starting to refresh cache for ${totalCount} current season items...`
       );
 
       for (const chunk of chunks) {
@@ -308,11 +398,7 @@ class BangumiModel {
               const subjectId = this.getBangumiSubjectId(item);
               if (subjectId) {
                 if (this.imageCache[subjectId]) {
-                  // 缓存中已存在，跳过刷新
                   skippedCount++;
-                  // console.log(
-                  //   `[Cache] Skipping image refresh for ${item.title} (${subjectId}) - already cached`
-                  // );
                 } else {
                   try {
                     await this.fetchBangumiImage(subjectId);
@@ -337,11 +423,7 @@ class BangumiModel {
               const mediaId = this.getBilibiliMediaId(item);
               if (mediaId) {
                 if (this.pvBvidCache[mediaId]) {
-                  // 缓存中已存在，跳过刷新
                   skippedCount++;
-                  // console.log(
-                  //   `[Cache] Skipping PV refresh for ${item.title} (${mediaId}) - already cached`
-                  // );
                 } else {
                   try {
                     await this.fetchPvBvid(mediaId);
@@ -362,15 +444,46 @@ class BangumiModel {
                 }
               }
 
+              // 刷新 RSS 缓存 - 根据缓存过期时间判断是否需要刷新
+              const rssUrl = this.getMikanRssUrl(item);
+              if (rssUrl) {
+                const now = Date.now();
+                const cached = this.rssCache[rssUrl];
+
+                if (
+                  cached &&
+                  now - cached.timestamp < this.RSS_CACHE_EXPIRE_TIME
+                ) {
+                  skippedCount++;
+                } else {
+                  try {
+                    await this.fetchRssContent(rssUrl);
+                    successCount++;
+                  } catch (error) {
+                    console.error(
+                      `[Cache] Failed to refresh RSS for item ${item.title} (${rssUrl}):`,
+                      error
+                    );
+                    currentFailedItems.push({
+                      id: item.id || rssUrl,
+                      type: 'rss',
+                      rssUrl,
+                      retryCount: 0,
+                      lastRetryTime: Date.now(),
+                    });
+                  }
+                }
+              }
+
               processedCount++;
-              if (processedCount % 50 === 0) {
+              if (processedCount % 10 === 0) {
                 console.log(
-                  `[Cache] Progress: ${processedCount}/${totalCount} items processed, ${successCount} successful, ${skippedCount} skipped`
+                  `[Cache] Progress: ${processedCount}/${totalCount} current season items processed, ${successCount} successful, ${skippedCount} skipped`
                 );
               }
             } catch (error) {
               console.error(
-                `[Cache] Failed to process item ${item.title}:`,
+                `[Cache] Failed to process current season item ${item.title}:`,
                 error
               );
             }
@@ -379,12 +492,12 @@ class BangumiModel {
 
         // 在批次之间添加延迟，避免API限制
         if (chunks.indexOf(chunk) < chunks.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
       }
 
       console.log(
-        `[Cache] Cache refresh completed: ${processedCount}/${totalCount} items processed, ${successCount} successful, ${skippedCount} skipped, ${currentFailedItems.length} failed`
+        `[Cache] Cache refresh completed for current season (${currentSeason}): ${processedCount}/${totalCount} items processed, ${successCount} successful, ${skippedCount} skipped, ${currentFailedItems.length} failed`
       );
 
       // 更新失败项列表
@@ -393,7 +506,7 @@ class BangumiModel {
       // 如果有失败项，启动重试机制
       if (this.failedItems.length > 0) {
         console.log(
-          `[Cache] Starting retry mechanism for ${this.failedItems.length} failed items`
+          `[Cache] Starting retry mechanism for ${this.failedItems.length} failed current season items`
         );
         this.scheduleRetry();
       }
@@ -446,6 +559,13 @@ class BangumiModel {
           console.log(
             `[Cache] Retry success: PV for ${failedItem.id} (${failedItem.mediaId})`
           );
+        } else if (failedItem.type === 'rss' && failedItem.rssUrl) {
+          await this.fetchRssContent(failedItem.rssUrl);
+          success = true;
+          retrySuccessCount++;
+          console.log(
+            `[Cache] Retry success: RSS for ${failedItem.id} (${failedItem.rssUrl})`
+          );
         }
 
         if (!success) {
@@ -482,8 +602,8 @@ class BangumiModel {
         }
       }
 
-      // 在每个重试之间添加小延迟
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // 在每个重试之间添加延迟
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // RSS重试间隔更长
     }
 
     console.log(
@@ -506,8 +626,103 @@ class BangumiModel {
 
   // 手动触发缓存刷新（用于API调用）
   public async triggerCacheRefresh(): Promise<void> {
-    console.log('[Cache] Manual cache refresh triggered');
+    const currentSeason = this.getCurrentSeason();
+    console.log(
+      `[Cache] Manual cache refresh triggered for current season (${currentSeason})`
+    );
     await this.refreshAllCaches();
+  }
+
+  // 为特定番剧手动刷新缓存（不受季度限制）
+  public async refreshItemCache(item: Item): Promise<void> {
+    console.log(
+      `[Cache] Manual cache refresh for specific item: ${item.title}`
+    );
+
+    const promises: Promise<any>[] = [];
+
+    // 刷新图片缓存
+    const subjectId = this.getBangumiSubjectId(item);
+    if (subjectId) {
+      promises.push(
+        this.fetchBangumiImage(subjectId).catch((error) =>
+          console.error(`Failed to refresh image for ${item.title}:`, error)
+        )
+      );
+    }
+
+    // 刷新 PV 缓存
+    const mediaId = this.getBilibiliMediaId(item);
+    if (mediaId) {
+      promises.push(
+        this.fetchPvBvid(mediaId).catch((error) =>
+          console.error(`Failed to refresh PV for ${item.title}:`, error)
+        )
+      );
+    }
+
+    // 刷新 RSS 缓存
+    const rssUrl = this.getMikanRssUrl(item);
+    if (rssUrl) {
+      promises.push(
+        this.fetchRssContent(rssUrl).catch((error) =>
+          console.error(`Failed to refresh RSS for ${item.title}:`, error)
+        )
+      );
+    }
+
+    await Promise.all(promises);
+    console.log(
+      `[Cache] Manual cache refresh completed for item: ${item.title}`
+    );
+  }
+
+  // 获取当季度新番的缓存状态
+  public getCurrentSeasonCacheStatus(): {
+    season: string;
+    totalItems: number;
+    imageCached: number;
+    pvCached: number;
+    rssCached: number;
+  } {
+    const currentSeasonItems = this.getCurrentSeasonItems();
+    const currentSeason = this.getCurrentSeason();
+
+    let imageCached = 0;
+    let pvCached = 0;
+    let rssCached = 0;
+    const now = Date.now();
+
+    for (const item of currentSeasonItems) {
+      // 检查图片缓存
+      const subjectId = this.getBangumiSubjectId(item);
+      if (subjectId && this.imageCache[subjectId]) {
+        imageCached++;
+      }
+
+      // 检查PV缓存
+      const mediaId = this.getBilibiliMediaId(item);
+      if (mediaId && this.pvBvidCache[mediaId]) {
+        pvCached++;
+      }
+
+      // 检查RSS缓存（未过期）
+      const rssUrl = this.getMikanRssUrl(item);
+      if (rssUrl && this.rssCache[rssUrl]) {
+        const cached = this.rssCache[rssUrl];
+        if (now - cached.timestamp < this.RSS_CACHE_EXPIRE_TIME) {
+          rssCached++;
+        }
+      }
+    }
+
+    return {
+      season: currentSeason,
+      totalItems: currentSeasonItems.length,
+      imageCached,
+      pvCached,
+      rssCached,
+    };
   }
 
   // 停止缓存刷新调度器
@@ -822,6 +1037,136 @@ class BangumiModel {
     }
   }
 
+  private async loadRssCache() {
+    try {
+      const statRes = await stat(this.rssCachePath);
+      const cacheExpireTime = Date.now() - this.RSS_CACHE_EXPIRE_TIME;
+      if (statRes.mtimeMs < cacheExpireTime) {
+        // 缓存过期，删除
+        await fse.unlink(this.rssCachePath);
+      } else {
+        // 读取缓存
+        const cacheData = await fse.readJSON(this.rssCachePath);
+        this.rssCache = cacheData;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  private async saveRssCache() {
+    try {
+      await fse.writeJSON(this.rssCachePath, this.rssCache);
+    } catch (e) {
+      console.error('Failed to save RSS cache:', e);
+    }
+  }
+
+  private getMikanRssUrl(item: Item): string | null {
+    const mikanSite = item.sites.find((site) => site.site === 'mikan');
+    if (!mikanSite?.id) return null;
+
+    // 构建RSS URL，这里使用默认的mikanani.me RSS地址
+    return `https://mikanani.me/RSS/Bangumi?bangumiId=${mikanSite.id}`;
+  }
+
+  private async fetchRssContent(
+    rssUrl: string
+  ): Promise<RssContent | undefined> {
+    const cacheKey = rssUrl;
+    const now = Date.now();
+
+    // 检查缓存
+    if (
+      this.rssCache[cacheKey] &&
+      now - this.rssCache[cacheKey].timestamp < this.RSS_CACHE_EXPIRE_TIME
+    ) {
+      return this.rssCache[cacheKey].content;
+    }
+
+    try {
+      console.log(`[RSS] Fetching RSS content from: ${rssUrl}`);
+
+      const response = await axios.get(rssUrl, {
+        timeout: 10000,
+        headers: {
+          'User-Agent':
+            'bangumi-list-v3 (https://github.com/mercutio/bangumi-list-v3)',
+        },
+      });
+
+      // 解析XML
+      const parser = new xml2js.Parser({
+        explicitArray: false,
+        ignoreAttrs: false,
+        mergeAttrs: true,
+      });
+
+      const result = await parser.parseStringPromise(response.data);
+
+      if (!result.rss || !result.rss.channel) {
+        throw new Error('Invalid RSS format');
+      }
+
+      const channel = result.rss.channel;
+      const items = Array.isArray(channel.item)
+        ? channel.item
+        : channel.item
+        ? [channel.item]
+        : [];
+
+      const rssContent: RssContent = {
+        title: channel.title || '',
+        description: channel.description || '',
+        link: channel.link || '',
+        items: items.map((item: any) => ({
+          title: item.title || '',
+          description: item.description || '',
+          link: item.link || '',
+          pubDate: item.pubDate || '',
+          guid: item.guid || undefined,
+          enclosure: item.enclosure
+            ? {
+                url: item.enclosure.url || '',
+                type: item.enclosure.type || '',
+                length: item.enclosure.length || '',
+              }
+            : undefined,
+        })),
+      };
+
+      // 更新缓存
+      this.rssCache[cacheKey] = {
+        content: rssContent,
+        timestamp: now,
+      };
+
+      // 异步保存缓存，不阻塞
+      this.saveRssCache().catch(console.error);
+
+      console.log(
+        `[RSS] Successfully fetched RSS content: ${rssContent.items.length} items`
+      );
+      return rssContent;
+    } catch (error) {
+      console.error(`Failed to fetch RSS content from ${rssUrl}:`, error);
+      return undefined;
+    }
+  }
+
+  // 获取RSS内容的公共方法
+  public async getRssContent(rssUrl: string): Promise<RssContent | undefined> {
+    return this.fetchRssContent(rssUrl);
+  }
+
+  // 获取番剧的RSS内容
+  public async getItemRssContent(item: Item): Promise<RssContent | undefined> {
+    const rssUrl = this.getMikanRssUrl(item);
+    if (!rssUrl) return undefined;
+
+    return this.fetchRssContent(rssUrl);
+  }
+
   // 修改enrichItemsWithImages方法，只从缓存获取数据
   public async enrichItemsWithImages(items: Item[]): Promise<Item[]> {
     const enrichedItems = [...items];
@@ -831,24 +1176,21 @@ class BangumiModel {
       const subjectId = this.getBangumiSubjectId(item);
       if (subjectId && this.imageCache[subjectId]) {
         const cached = this.imageCache[subjectId];
-        // const now = Date.now();
-
-        // 检查缓存是否过期
-        // if (now - cached.timestamp < this.CACHE_EXPIRE_TIME) {
         item.image = cached.url;
-        // }
       }
 
       // 只从缓存获取 PV bvid
       const mediaId = this.getBilibiliMediaId(item);
       if (mediaId && this.pvBvidCache[mediaId]) {
         const cached = this.pvBvidCache[mediaId];
-        // const now = Date.now();
-
-        // 检查缓存是否过期
-        // if (now - cached.timestamp < this.CACHE_EXPIRE_TIME) {
         item.previewEmbedLink = `https://player.bilibili.com/player.html?isOutside=true&bvid=${cached.bvid}&high_quality=1`;
-        // }
+      }
+
+      // 只从缓存获取 RSS 内容
+      const rssUrl = this.getMikanRssUrl(item);
+      if (rssUrl && this.rssCache[rssUrl]) {
+        const cached = this.rssCache[rssUrl];
+        item.rssContent = cached.content;
       }
     }
 
