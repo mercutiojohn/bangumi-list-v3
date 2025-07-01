@@ -65,9 +65,14 @@ jobs:
 
     - name: Upload files to server
       run: |
-        rsync -avz -e "ssh -o LogLevel=ERROR -i ~/.ssh/id_rsa" \
-          bangumi-list-v3.tar docker-compose.yml .env.example \
-          ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/opt/bangumi-list-v3/
+        # 使用 sftp 避免 shell 输出问题
+        sftp -o LogLevel=ERROR -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+        cd /opt/bangumi-list-v3
+        put bangumi-list-v3.tar
+        put docker-compose.yml
+        put .env.example
+        quit
+        EOF
 
     - name: Deploy on server
       run: |
