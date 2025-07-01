@@ -119,7 +119,7 @@ export function CacheManager() {
                         {item.type === 'image' ? '图片' : 'PV'}: {item.id}
                       </span>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" size="sm">
+                        <Badge variant="outline">
                           重试 {item.retryCount}/5
                         </Badge>
                         <span className="text-muted-foreground">
