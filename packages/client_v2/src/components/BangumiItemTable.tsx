@@ -9,6 +9,7 @@ interface BangumiItemTableProps {
   siteMeta?: SiteMeta;
   isArchive?: boolean;
   emptyText?: string;
+  size?: 'default' | 'square';
   className?: string;
 }
 
@@ -17,6 +18,7 @@ export default function BangumiItemTable({
   siteMeta = {},
   isArchive = false,
   emptyText = '暂无',
+  size = 'default',
   className,
 }: BangumiItemTableProps) {
   const { isLogin } = useUser();
@@ -54,7 +56,14 @@ export default function BangumiItemTable({
   }
 
   return (
-    <div className={cn("grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4", className)}>
+    <div className={cn(
+      "gap-4",
+      size === 'square' ?
+        'flex overflow-x-auto'
+         :
+        "grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6",
+      className
+    )}>
       {items.map((item) => {
         const id = item.id || '';
         const isWatching = bangumi.watching.includes(id);
@@ -67,6 +76,10 @@ export default function BangumiItemTable({
             isArchive={isArchive}
             isWatching={isWatching}
             onWatchingClick={() => handleWatchingClick(id)}
+            size={size}
+            className={cn(
+              size === 'square' && 'w-24 flex-shrink-0',
+            )}
           />
         );
       })}

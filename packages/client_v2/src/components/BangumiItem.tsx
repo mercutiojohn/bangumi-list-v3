@@ -20,6 +20,7 @@ interface BangumiItemProps {
   siteMeta?: SiteMeta;
   isArchive?: boolean;
   isWatching?: boolean;
+  size?: 'default' | 'square';
   onWatchingClick?: () => void;
 }
 
@@ -29,6 +30,7 @@ export default function BangumiItem({
   siteMeta = {},
   isArchive = false,
   isWatching = false,
+  size = 'default',
   onWatchingClick,
 }: BangumiItemProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -98,13 +100,19 @@ export default function BangumiItem({
   };
 
   const cardPreview = (
-    <div className="flex flex-col gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+    <div className={cn(
+      "flex flex-col gap-3 cursor-pointer hover:opacity-80 transition-opacity",
+      className
+    )}>
       <div className="relative">
         {item.image ? (
           <img
             src={item.image}
             alt={titleCN || item.title}
-            className="w-full aspect-[3/4] object-cover rounded-lg bg-gray-100"
+            className={cn(
+              "w-full object-cover rounded-lg bg-gray-100",
+              size === 'square' ? "aspect-square" : "aspect-[3/4]",
+            )}
             loading="lazy"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -118,7 +126,8 @@ export default function BangumiItem({
         ) : null}
         <div
           className={cn(
-            "w-full aspect-[3/4] bg-gray-100 rounded-lg flex items-center justify-center",
+            "w-full bg-gray-100 rounded-lg flex items-center justify-center",
+            size === 'square' ? "aspect-square" : "aspect-[3/4]",
             item.image ? "hidden" : "flex"
           )}
         >

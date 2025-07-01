@@ -6,6 +6,7 @@ import {
   Badge,
   CacheManager,
   SearchInput,
+  ArchiveCalendar,
 } from "@/components";
 import {
   Weekday,
@@ -20,6 +21,7 @@ import {
 import { Settings } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/PageHeader";
 
 const bangumiTemplates = {
   'bangumi.tv': 'https://bgm.tv/subject/{{id}}',
@@ -79,6 +81,21 @@ function BgmList() {
     if (!siteId) return true;
     return item.sites.some((site: any) => site.site === siteId);
   };
+
+  const allItems = useMemo(() => {
+    return onairData?.items || [];
+  }
+    , [onairData]);
+
+  const searchItems = useMemo(() => {
+    return allItems.filter(searchFilter(searchText));
+  }
+    , [allItems, searchText]);
+
+  const dayItems = useMemo(() => {
+    return allItems.filter(weekdayFilter(currentTab));
+  }
+    , [allItems, currentTab]);
 
   // 过滤和排序番组
   const filteredItems = useMemo(() => {
@@ -173,28 +190,14 @@ function BgmList() {
   }
 
   return (
-    <div className="">
-      <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border z-50">
+    <div className="relative h-[100vh] overflow-y-auto">
+      <div className="hidden sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border z-50">
         <div className="container mx-auto px-4 py-3 flex flex-col gap-4">
           {/* 标题 */}
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-2">
               <h1 className="text-2xl font-semibold">每日放送</h1>
-              {/* 数据统计 */}
-              <div className="text-xs text-muted-foreground">
-                {isInSearch ? (
-                  `搜索到 ${filteredItems.length} 部`
-                ) : (
-                  `共 ${filteredItems.length} 部`
-                )}
-              </div>
             </div>
-            <WeekdayTab
-              className="hidden xl:flex"
-              disabled={isInSearch}
-              activated={currentTab}
-              onClick={handleTabClick}
-            />
             <div className="flex gap-2">
               <SearchInput
                 className="hidden w-full max-w-md xl:flex"
@@ -210,6 +213,7 @@ function BgmList() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-96">
+                  <ArchiveCalendar />
                   <CacheManager />
                 </PopoverContent>
               </Popover>
@@ -221,15 +225,6 @@ function BgmList() {
             <SearchInput
               onSearchInput={handleSearchInput}
               placeholder="搜索番组名称..."
-            />
-            <WeekdayTab
-              className="mx-auto"
-              disabled={isInSearch}
-              activated={currentTab}
-              onClick={handleTabClick}
-              onSiteFilter={handleSiteFilter}
-              activeSiteFilter={activeSiteFilter}
-              availableSites={availableSites}
             />
           </div>
 
@@ -255,13 +250,71 @@ function BgmList() {
         </div>
       </div>
 
+      <PageHeader
+        leftContent={
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-2xl font-semibold">每日放送</h1>
+          </div>
+        }
+        centerContent={
+          <SearchInput
+            className="w-full xl:max-w-md"
+            onSearchInput={handleSearchInput}
+            placeholder="搜索番组名称..."
+          />
+        }
+        rightContent={
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-96">
+              <ArchiveCalendar />
+              <CacheManager />
+            </PopoverContent>
+          </Popover>
+        }
+        centerAtRight
+      />
+
       <div className="container mx-auto p-4 space-y-6">
-        {/* 番组列表 */}
+        新番日历
+        <WeekdayTab
+          disabled={false}
+          activated={currentTab}
+          onClick={handleTabClick}
+        />
         <BangumiItemTable
-          items={filteredItems}
+          items={dayItems}
+          siteMeta={modifiedSiteMeta}
+          emptyText={`周${Weekday[currentTab]}暂无番组`}
+          size="square"
+        />
+        全部番组列表
+
+        {/* 数据统计 */}
+        <div className="text-xs text-muted-foreground">
+          {isInSearch ? (
+            `搜索到 ${filteredItems.length} 部`
+          ) : (
+            `共 ${filteredItems.length} 部`
+          )}
+        </div>
+        <BangumiItemTable
+          items={allItems}
           siteMeta={modifiedSiteMeta}
           emptyText={isInSearch ? '无搜索结果' : '暂无番组'}
         />
+        {/* 搜索结果列表 */}
+        {isInSearch && (
+          <BangumiItemTable
+            items={searchItems}
+            siteMeta={modifiedSiteMeta}
+            emptyText="无搜索结果"
+          />
+        )}
 
         {/* 数据更新时间 */}
         {onairData?.updated && (

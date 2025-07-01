@@ -53,7 +53,7 @@ export default function WeekdayTab({
     <div className={cn("space-y-3", className)}>
       {/* 周几选择 */}
       <div className="flex flex-wrap gap-2">
-        <Button
+        {/* <Button
           variant={activated === Weekday.ALL ? "default" : "outline"}
           size="sm"
           disabled={disabled}
@@ -64,7 +64,7 @@ export default function WeekdayTab({
           )}
         >
           全部
-        </Button>
+        </Button> */}
         {buttons}
       </div>
     </div>

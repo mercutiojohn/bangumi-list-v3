@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { NavLink } from "react-router"
@@ -32,6 +33,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarContent>
+        <SidebarTrigger />
         <SidebarGroup>
           <SidebarGroupLabel>番组放送</SidebarGroupLabel>
           <SidebarGroupContent>

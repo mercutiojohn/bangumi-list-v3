@@ -6,6 +6,7 @@ export { default as WeekdayTab } from './WeekdayTab';
 export { default as SearchInput } from './SearchInput';
 export { default as Top } from './Top';
 export { CacheManager } from './CacheManager';
+export { ArchiveCalendar } from './ArchiveCalendar';
 
 // UI components re-exports
 export * from './ui/button';

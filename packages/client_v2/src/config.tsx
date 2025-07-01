@@ -1,4 +1,4 @@
-import { Home, Settings, User, LogIn, UserPlus } from "lucide-react"
+import { Home, Settings, User, LogIn, UserPlus, Compass, Search, Newspaper } from "lucide-react"
 import { createBrowserRouter } from "react-router";
 
 import Layout from "./components/layout";
@@ -6,6 +6,7 @@ import BgmList from "./pages/BgmList";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import UserCenterPage from "./pages/UserCenterPage";
+import ArchivePage from "./pages/ArchivePage";
 
 export const ROUTER_ITEMS = createBrowserRouter([
   {
@@ -17,8 +18,8 @@ export const ROUTER_ITEMS = createBrowserRouter([
         Component: BgmList,
       },
       {
-        path: '/list',
-        Component: BgmList,
+        path: '/archive',
+        Component: ArchivePage,
       },
       {
         path: "/login",
@@ -32,25 +33,21 @@ export const ROUTER_ITEMS = createBrowserRouter([
         path: "/me",
         Component: UserCenterPage,
       },
-      // {
-      //   path: "/settings",
-      //   element: <div>Settings Page</div>,
-      // }
     ],
   },
 ]);
 
 export const MENU_ITEMS = [
   {
-    title: "首页",
+    title: "当季新番",
     path: "/",
-    icon: Home,
+    icon: Newspaper,
   },
-  // {
-  //   title: "设置",
-  //   path: "/settings",
-  //   icon: Settings,
-  // },
+  {
+    title: "历史",
+    path: "/archive",
+    icon: Compass,
+  },
 ]
 
 export const USER_MENU_ITEMS = [
