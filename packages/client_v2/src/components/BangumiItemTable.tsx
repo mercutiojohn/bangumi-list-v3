@@ -37,7 +37,7 @@ export default function BangumiItemTable({
       if (isLogin) {
         updateBangumiPreference({ ...bangumi, watching: [...bangumi.watching] }).catch(console.error);
       } else {
-        updateBangumiPreferenceLocal(bangumi);
+        updateBangumiPreferenceLocal({ ...bangumi, watching: [...bangumi.watching] });
       }
       lastBangumiPreferenceVersion.current = bangumi.version;
     }
