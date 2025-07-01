@@ -73,82 +73,68 @@ export function ArchiveCalendar() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Calendar className="h-4 w-4 mr-2" />
-          历史数据
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle>历史番剧日历</DialogTitle>
-        </DialogHeader>
+    <div className="space-y-2 h-full overflow-y-auto">
+      {yearOptions.map((year) => {
+        const isExpanded = expandedYears.has(year);
+        const quarters = yearQuarterOptions[year] || [];
 
-        <div className="space-y-2 overflow-y-auto">
-          {yearOptions.map((year) => {
-            const isExpanded = expandedYears.has(year);
-            const quarters = yearQuarterOptions[year] || [];
-
-            return (
-              <Collapsible
-                key={year}
-                open={isExpanded}
-                onOpenChange={() => toggleYear(year)}
+        return (
+          <Collapsible
+            key={year}
+            open={isExpanded}
+            onOpenChange={() => toggleYear(year)}
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between p-3 h-auto"
               >
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-between p-3 h-auto"
-                  >
-                    <span className="text-base font-medium">{year}年</span>
-                    <div className="flex items-center gap-2">
-                      {/* <span className="text-sm text-muted-foreground">
-                        {quarters.length}季
-                      </span> */}
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
+                <span className="text-base font-medium">{year}年</span>
+                <div className="flex items-center gap-2">
+                  {/* <span className="text-sm text-muted-foreground">
+                    {quarters.length}季
+                  </span> */}
+                  {isExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </div>
+              </Button>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent className="px-3 pb-2">
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 2, 3, 4].map((quarter) => {
+                  const hasData = quarters.includes(quarter.toString());
+                  const season = `${year}q${quarter}`;
+
+                  return (
+                    <Button
+                      key={quarter}
+                      variant={hasData ? "default" : "secondary"}
+                      disabled={!hasData}
+                      size="sm"
+                      className={cn(
+                        "h-12 flex flex-col gap-0.5",
+                        !hasData && "opacity-50 cursor-not-allowed"
                       )}
-                    </div>
-                  </Button>
-                </CollapsibleTrigger>
-
-                <CollapsibleContent className="px-3 pb-2">
-                  <div className="grid grid-cols-4 gap-2">
-                    {[1, 2, 3, 4].map((quarter) => {
-                      const hasData = quarters.includes(quarter.toString());
-                      const season = `${year}q${quarter}`;
-
-                      return (
-                        <Button
-                          key={quarter}
-                          variant={hasData ? "default" : "secondary"}
-                          disabled={!hasData}
-                          size="sm"
-                          className={cn(
-                            "h-12 flex flex-col gap-0.5",
-                            !hasData && "opacity-50 cursor-not-allowed"
-                          )}
-                          onClick={() => hasData && handleSeasonClick(season)}
-                        >
-                          <span className="text-xs font-medium">
-                            {quarterNames[quarter]}
-                          </span>
-                          <span className="text-xs opacity-80">
-                            {quarterToMonth(quarter)}月
-                          </span>
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          })}
-        </div>
-      </DialogContent>
-    </Dialog>
+                      onClick={() => hasData && handleSeasonClick(season)}
+                    >
+                      <span className="text-xs font-medium">
+                        {quarterNames[quarter]}
+                      </span>
+                      <span className="text-xs opacity-80">
+                        {quarterToMonth(quarter)}月
+                      </span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })}
+    </div>
   );
 }

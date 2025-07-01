@@ -22,6 +22,7 @@ import { Settings } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/PageHeader";
+import { PageLayout } from "@/components/PageLayout";
 
 const bangumiTemplates = {
   'bangumi.tv': 'https://bgm.tv/subject/{{id}}',
@@ -190,66 +191,7 @@ function BgmList() {
   }
 
   return (
-    <div className="relative h-[100vh] overflow-y-auto">
-      <div className="hidden sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border z-50">
-        <div className="container mx-auto px-4 py-3 flex flex-col gap-4">
-          {/* 标题 */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-baseline gap-2">
-              <h1 className="text-2xl font-semibold">每日放送</h1>
-            </div>
-            <div className="flex gap-2">
-              <SearchInput
-                className="hidden w-full max-w-md xl:flex"
-                onSearchInput={handleSearchInput}
-                placeholder="搜索番组名称..."
-              />
-              <Popover>
-                <PopoverTrigger>
-                  <Button
-                    variant="outline"
-                  >
-                    <Settings className="h-5 w-5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-96">
-                  <ArchiveCalendar />
-                  <CacheManager />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          {/* 搜索栏 */}
-          <div className="hidden mb-3 max-xl:flex flex-col gap-2">
-            <SearchInput
-              onSearchInput={handleSearchInput}
-              placeholder="搜索番组名称..."
-            />
-          </div>
-
-          {/* 筛选设置状态 - 紧凑显示 */}
-          {(common.newOnly || common.watchingOnly || common.hoistWatching || activeSiteFilter) && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {common.newOnly && (
-                <Badge variant="secondary" className="text-xs">仅显示新番</Badge>
-              )}
-              {common.watchingOnly && (
-                <Badge variant="secondary" className="text-xs">仅显示在看</Badge>
-              )}
-              {common.hoistWatching && (
-                <Badge variant="secondary" className="text-xs">置顶在看</Badge>
-              )}
-              {activeSiteFilter && (
-                <Badge variant="secondary" className="text-xs">
-                  配信: {availableSites.find(s => s.id === activeSiteFilter)?.name || activeSiteFilter}
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
+    <PageLayout>
       <PageHeader
         leftContent={
           <div className="flex items-baseline gap-2">
@@ -265,13 +207,12 @@ function BgmList() {
         }
         rightContent={
           <Popover>
-            <PopoverTrigger asChild>
+            <PopoverTrigger>
               <Button variant="outline">
                 <Settings className="h-5 w-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-96">
-              <ArchiveCalendar />
               <CacheManager />
             </PopoverContent>
           </Popover>
@@ -323,7 +264,7 @@ function BgmList() {
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

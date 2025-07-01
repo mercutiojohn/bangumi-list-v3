@@ -34,7 +34,11 @@ export const PageHeader = ({
         "flex items-center",
         className
       )}>
-        <div className="container mx-auto px-4 py-3 flex flex-col gap-4">
+        <div className={cn(
+          // "container mx-auto",
+          "w-full",
+          "px-4 py-3 flex flex-col gap-4"
+        )}>
           <div className="flex items-center justify-between">
             <div className="flex gap-2 items-center">
               <SidebarTrigger />
