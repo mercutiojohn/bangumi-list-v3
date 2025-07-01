@@ -332,7 +332,7 @@ export default function BangumiItem({
         <DrawerTrigger asChild>
           {cardPreview}
         </DrawerTrigger>
-        <DrawerContent className="max-h-[90vh] p-0">
+        <DrawerContent className="p-0">
           {cardDetail}
         </DrawerContent>
       </Drawer>
