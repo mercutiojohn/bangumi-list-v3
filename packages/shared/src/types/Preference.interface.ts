@@ -28,4 +28,5 @@ export interface BangumiPreference {
 
 export interface VersionedBangumiPreference extends BangumiPreference {
   version: number;
+  [key: string]: unknown;
 }
