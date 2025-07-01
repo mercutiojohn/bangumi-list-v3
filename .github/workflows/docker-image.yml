@@ -22,7 +22,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         push: true
-        tags: ghcr.io/wxt2005/bangumi-list-v3:latest
+        tags: ghcr.io/${{ github.repository_owner }}/bangumi-list-v3:latest
         build-args: |
           GA_ID=${{ secrets.GA_ID }}
 
