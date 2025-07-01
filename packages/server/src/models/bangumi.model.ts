@@ -340,9 +340,9 @@ class BangumiModel {
                 if (this.pvBvidCache[mediaId]) {
                   // 缓存中已存在，跳过刷新
                   skippedCount++;
-                  console.log(
-                    `[Cache] Skipping PV refresh for ${item.title} (${mediaId}) - already cached`
-                  );
+                  // console.log(
+                  //   `[Cache] Skipping PV refresh for ${item.title} (${mediaId}) - already cached`
+                  // );
                 } else {
                   try {
                     await this.fetchPvBvid(mediaId);

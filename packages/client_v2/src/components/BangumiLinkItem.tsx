@@ -7,7 +7,7 @@ interface BangumiLinkItemProps {
   newTab?: boolean;
   site: BangumiSite;
   siteMeta?: SiteMeta;
-  variant?: "default" | "ghost" | "link";
+  variant?: "link" | "ghost" | "default" | "secondary" | "destructive" | "outline" | null | undefined;
   size?: "default" | "sm" | "lg";
   className?: string;
 }
@@ -16,8 +16,8 @@ export default function BangumiLinkItem({
   newTab = true,
   site,
   siteMeta = {},
-  variant = "link",
-  size = "sm",
+  variant = "outline",
+  size = "default",
   className
 }: BangumiLinkItemProps) {
   const title = siteMeta[site.site]?.title ?? '未知';
@@ -27,7 +27,7 @@ export default function BangumiLinkItem({
 
   if (!href) {
     return (
-      <span className={cn("text-muted-foreground text-sm", className)}>
+      <span className={cn("text-muted-foreground", className)}>
         {title}
       </span>
     );
@@ -38,16 +38,21 @@ export default function BangumiLinkItem({
       variant={variant}
       size={size}
       asChild
-      className={cn("h-auto p-1 text-sm", className)}
+      className={className}
     >
       <a
         href={href}
         rel="noopener"
         target={target}
-        className="inline-flex items-center gap-1"
+        className={cn(
+          "inline-flex items-center gap-1",
+          variant === "link" ? "!px-0 text-xs !text-muted-foreground" : "",
+        )}
       >
         {title}
-        {newTab && <ExternalLink className="h-3 w-3" />}
+        {newTab && variant === "link" && <ExternalLink className={cn(
+          variant === "link" ? "h-2 w-2" : "h-3 w-3"
+        )} />}
       </a>
     </Button>
   );

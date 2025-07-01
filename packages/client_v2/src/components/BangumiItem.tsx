@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import { getBroadcastTimeString, SiteType } from "@/lib/bangumi-utils";
 import BangumiLinkItem from "./BangumiLinkItem";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface BangumiItemProps {
   className?: string;
@@ -31,6 +32,19 @@ export default function BangumiItem({
   onWatchingClick,
 }: BangumiItemProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+
   const broadcastTimeString = getBroadcastTimeString(item, siteMeta);
   const titleCN = get(item, 'titleTranslate.zh-Hans[0]', '') as string;
   const nowDate = new Date();
@@ -54,9 +68,19 @@ export default function BangumiItem({
       />
     );
 
+    const infoItem = (
+      <BangumiLinkItem
+        key={`${site.site}_${site.id}`}
+        site={site}
+        siteMeta={siteMeta}
+        variant={"link"}
+        size={"sm"}
+      />
+    )
+
     switch (siteMeta[site.site].type) {
       case SiteType.INFO:
-        infoSites.push(linkItem);
+        infoSites.push(infoItem);
         break;
       case SiteType.RESOURCE:
         resourceSites.push(linkItem);
@@ -73,7 +97,6 @@ export default function BangumiItem({
     onWatchingClick?.();
   };
 
-  // 简化的卡片展示（用作 Dialog 触发器）
   const cardPreview = (
     <div className="flex flex-col gap-3 cursor-pointer hover:opacity-80 transition-opacity">
       <div className="relative">
@@ -81,7 +104,7 @@ export default function BangumiItem({
           <img
             src={item.image}
             alt={titleCN || item.title}
-            className="w-full aspect-[3/4] object-cover rounded-lg bg-gray-100 shadow-md"
+            className="w-full aspect-[3/4] object-cover rounded-lg bg-gray-100"
             loading="lazy"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -95,25 +118,16 @@ export default function BangumiItem({
         ) : null}
         <div
           className={cn(
-            "w-full aspect-[3/4] bg-gray-100 rounded-lg flex items-center justify-center shadow-md",
+            "w-full aspect-[3/4] bg-gray-100 rounded-lg flex items-center justify-center",
             item.image ? "hidden" : "flex"
           )}
         >
           <Image className="w-12 h-12 text-gray-400" />
         </div>
-
-        {/* PV 播放按钮指示器 */}
-        {item.previewEmbedLink && (
-          <div className="absolute inset-0 bg-black/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-            <div className="bg-black/60 rounded-full p-2">
-              <Play className="w-6 h-6 text-white fill-current" />
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="">
-        <h3 className="font-semibold text-xl leading-tight mb-2 line-clamp-2">
+        <h3 className="leading-tight mb-2 line-clamp-2">
           {titleCN || item.title}
 
           {!isArchive && isNew && (
@@ -123,7 +137,7 @@ export default function BangumiItem({
           )}
         </h3>
         {titleCN && (
-          <p className="text-sm text-muted-foreground line-clamp-1 mb-3">
+          <p className="text-xs text-muted-foreground line-clamp-1 mb-3">
             {item.title}
           </p>
         )}
@@ -131,33 +145,68 @@ export default function BangumiItem({
     </div>
   );
 
-  // 详细的卡片内容（在 Dialog 中展示）
+  // 详细的卡片内容（在 Dialog/Drawer 中展示）
   const cardDetail = (
-    <div className="flex flex-col md:flex-row gap-6">
+    <div className={cn(
+      "flex gap-6",
+      "flex-col overflow-y-auto pb-4",
+      isMobile && "mt-4",
+    )}>
       {/* 番组图片 */}
-      <div className="flex-shrink-0">
+      <div className={cn("flex-shrink-0")}>
         <div className="relative">
-          {item.image ? (
-            <img
-              src={item.image}
-              alt={titleCN || item.title}
-              className="w-48 h-64 object-cover rounded-lg bg-gray-100 shadow-md"
-              loading="lazy"
-            />
+          {item.previewEmbedLink ? (
+            <>
+              <div className="aspect-video bg-gray-100 overflow-hidden">
+                <iframe
+                  src={item.previewEmbedLink}
+                  className="w-full h-full border-0 user-select-none"
+                  allowFullScreen
+                  title={`${titleCN || item.title} PV`}
+                />
+              </div>
+              {/* <div className="absolute inset-0 bg-black/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+              <div className="bg-black/60 rounded-full p-2">
+                <Play className="w-6 h-6 text-white fill-current" />
+              </div>
+            </div> */}
+            </>
           ) : (
-            <div className="w-48 h-64 bg-gray-100 rounded-lg flex items-center justify-center shadow-md">
-              <div className="w-12 h-12 text-gray-400">📺</div>
+            <div className="flex items-center justify-center aspect-video bg-gray-100">
+              {item.image ? (
+                <img
+                  src={item.image}
+                  alt={titleCN || item.title}
+                  className={cn(
+                    "object-cover",
+                    "rounded-lg bg-gray-100 shadow-md m-6",
+                    isMobile ? "w-48 h-64" : "w-64 h-96",
+                  )}
+                  loading="lazy"
+                />
+              ) : (
+                <div className={cn(
+                  "flex items-center justify-center",
+                  "rounded-lg bg-gray-100 shadow-md m-6",
+                  isMobile ? "w-48 h-64" : "w-64 h-96",
+                )}>
+                  <Image className="w-12 h-12 text-gray-400" />
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* 番组信息 - 右侧内容 */}
-      <div className="flex-1 min-w-0 space-y-4">
+      {/* 番组信息 */}
+      <div className="flex-1 min-w-0 space-y-4 px-4">
         {/* 标题和在看按钮 */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-xl leading-tight mb-2 line-clamp-2">
+            <h3 className={cn(
+              "font-semibold leading-tight mb-2 line-clamp-2",
+              isMobile ? "text-lg" : "text-xl"
+            )}>
               {titleCN || item.title}
 
               {!isArchive && isNew && (
@@ -171,6 +220,19 @@ export default function BangumiItem({
                 {item.title}
               </p>
             )}
+
+            {/* 信息站点 */}
+            <div className="flex gap-4">
+              {item.officialSite && (
+                <Button variant="link" size="sm" asChild className="px-0">
+                  <a href={item.officialSite} rel="noopener" target="_blank" className="text-xs !text-muted-foreground inline-flex items-center gap-1 !p-0">
+                    官网
+                    <ExternalLink className="h-2 w-2" />
+                  </a>
+                </Button>
+              )}
+              {infoSites}
+            </div>
           </div>
 
           {!isArchive && (
@@ -190,7 +252,10 @@ export default function BangumiItem({
         </div>
 
         {/* 播放时间信息 */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+        <div className={cn(
+          "grid gap-3 text-sm",
+          isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-3"
+        )}>
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
             <div>
@@ -221,82 +286,56 @@ export default function BangumiItem({
         </div>
 
         {/* 链接信息 - 使用 Popover */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {item.officialSite && (
-              <Button variant="link" size="sm" asChild className="h-auto p-1 text-sm">
-                <a href={item.officialSite} rel="noopener" target="_blank" className="inline-flex items-center gap-1">
-                  官网
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </Button>
-            )}
-          </div>
-
-          {(infoSites.length > 0 || onairSites.length > 0 || resourceSites.length > 0) && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 px-3">
-                  <Globe className="h-4 w-4 mr-1" />
-                  更多链接
-                  <MoreHorizontal className="h-4 w-4 ml-1" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-4">
-                  {/* 信息站点 */}
-                  {infoSites.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Globe className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">信息</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {infoSites}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 配信站点 */}
-                  {onairSites.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Globe className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">配信</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {onairSites}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 下载站点 */}
-                  {resourceSites.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Globe className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">下载</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {resourceSites}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+        <div className="space-y-4">
+          {/* 下载站点 */}
+          {resourceSites.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">下载</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {resourceSites}
+              </div>
+            </div>
+          )}
+          {/* 配信站点 */}
+          {onairSites.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">配信</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {onairSites}
+              </div>
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 
+  // 根据设备类型渲染不同的容器
+  if (isMobile) {
+    return (
+      <Drawer open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DrawerTrigger asChild>
+          {cardPreview}
+        </DrawerTrigger>
+        <DrawerContent className="max-h-[90vh] p-0">
+          {cardDetail}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         {cardPreview}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <DialogContent className="!max-w-4xl !w-full h-[90vh] overflow-hidden p-0 border-none">
         {cardDetail}
       </DialogContent>
     </Dialog>
