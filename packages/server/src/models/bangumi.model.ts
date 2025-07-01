@@ -352,7 +352,7 @@ class BangumiModel {
                       error
                     );
                     currentFailedItems.push({
-                      id: item.id,
+                      id: item.id || mediaId,
                       type: 'pv',
                       mediaId,
                       retryCount: 0,

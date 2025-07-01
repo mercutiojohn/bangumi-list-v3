@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { User } from 'bangumi-list-v3-shared';
 import tokenModel from './token.model';
-import { PrismaClient, User as UserRow } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -87,7 +87,7 @@ class UserModel {
     email: string,
     password: string
   ): Promise<UserFull | null> {
-    let row: UserRow | null;
+    let row: any | null;
     try {
       row = await prisma.user.findFirst({
         where: {
@@ -115,7 +115,7 @@ class UserModel {
     id: string,
     password: string
   ): Promise<UserFull | null> {
-    let row: UserRow | null;
+    let row: any | null;
     try {
       row = await prisma.user.findFirst({
         where: {

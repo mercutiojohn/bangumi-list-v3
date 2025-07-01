@@ -52,4 +52,21 @@ export const preferenceActions = {
     bangumiPreferenceStore.watching = watching;
     bangumiPreferenceStore.version = Date.now();
   },
+  addBangumiWatching: (bangumiId: string) => {
+    const watching = [...bangumiPreferenceStore.watching];
+    if (!watching.includes(bangumiId)) {
+      watching.push(bangumiId);
+      bangumiPreferenceStore.watching = watching;
+      bangumiPreferenceStore.version = Date.now();
+    }
+  },
+  removeBangumiWatching: (bangumiId: string) => {
+    const watching = [...bangumiPreferenceStore.watching];
+    const index = watching.indexOf(bangumiId);
+    if (index >= 0) {
+      watching.splice(index, 1);
+      bangumiPreferenceStore.watching = watching;
+      bangumiPreferenceStore.version = Date.now();
+    }
+  },
 };

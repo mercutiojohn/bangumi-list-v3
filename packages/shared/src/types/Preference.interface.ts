@@ -19,6 +19,7 @@ export interface CommonPreference {
 
 export interface VersionedCommonPreference extends CommonPreference {
   version: number;
+  [key: string]: unknown;
 }
 
 export interface BangumiPreference {
