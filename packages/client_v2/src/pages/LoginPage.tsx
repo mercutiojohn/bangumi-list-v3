@@ -80,7 +80,7 @@ export default function LoginPage() {
             使用邮箱和密码登录您的账户
           </CardDescription>
         </CardHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit as any)}>
           <CardContent className="space-y-4">
             {/* Email Field */}
             <div className="space-y-2">
