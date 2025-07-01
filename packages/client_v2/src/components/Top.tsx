@@ -18,12 +18,6 @@ export default function Top({ onSearchInput, className }: TopProps) {
           placeholder="搜索番组名称..."
         />
       </div>
-      <Button variant="outline" size="sm" asChild>
-        <Link to="/settings">
-          <Settings className="h-4 w-4" />
-          <span className="sr-only">设置</span>
-        </Link>
-      </Button>
     </div>
   );
 }

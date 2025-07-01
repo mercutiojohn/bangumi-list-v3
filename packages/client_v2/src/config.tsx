@@ -2,7 +2,7 @@ import { Home, Settings, User, LogIn, UserPlus } from "lucide-react"
 import { createBrowserRouter } from "react-router";
 
 import Layout from "./components/layout";
-import App from "./App";
+import BgmList from "./pages/BgmList";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import UserCenterPage from "./pages/UserCenterPage";
@@ -14,7 +14,11 @@ export const ROUTER_ITEMS = createBrowserRouter([
     children: [
       {
         index: true,
-        Component: App,
+        Component: BgmList,
+      },
+      {
+        path: '/list',
+        Component: BgmList,
       },
       {
         path: "/login",

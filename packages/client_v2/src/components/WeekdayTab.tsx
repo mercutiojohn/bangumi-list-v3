@@ -70,7 +70,7 @@ export default function WeekdayTab({
 			</div>
 
 			{/* 配信站点筛选 */}
-			{availableSites.length > 0 && (
+			{availableSites.length > 0 && false && (
 				<div className="flex items-center gap-2">
 					<span className="text-sm text-muted-foreground whitespace-nowrap">配信筛选:</span>
 					<Select

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useAppInit, useOnAirData, useSiteData, usePreference } from "@/hooks";
+import { useOnAirData, useSiteData, usePreference } from "@/hooks";
 import {
   Top,
   WeekdayTab,
@@ -9,7 +9,8 @@ import {
   CardHeader,
   CardTitle,
   Badge,
-  CacheManager
+  CacheManager,
+  SearchInput
 } from "@/components";
 import {
   Weekday,
@@ -23,7 +24,6 @@ import {
 } from "@/lib/bangumi-utils";
 import { Settings } from "lucide-react";
 
-// 站点域名模板（复刻原client的逻辑）
 const bangumiTemplates = {
   'bangumi.tv': 'https://bgm.tv/subject/{{id}}',
   'chii.in': 'https://chii.in/subject/{{id}}',
@@ -34,10 +34,7 @@ const mikanTemplates = {
   'mikanime.tv': 'https://mikanime.tv/Home/Bangumi/{{id}}',
 };
 
-function App() {
-  // 初始化应用
-  useAppInit();
-
+function BgmList() {
   // 获取数据
   const { data: onairData, isLoading: onairLoading, error: onairError } = useOnAirData();
   const { data: siteData, isLoading: siteLoading, error: siteError } = useSiteData();
@@ -180,92 +177,110 @@ function App() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* 页面标题和管理按钮 */}
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-4">
-          <h1 className="text-4xl font-bold">每日放送</h1>
-          <button
-            onClick={() => setShowCacheManager(!showCacheManager)}
-            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
-            title="缓存管理"
-          >
-            <Settings className="h-5 w-5 text-muted-foreground" />
-          </button>
-        </div>
-      </div>
+    <div className="">
+      <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border z-50">
+        <div className="container mx-auto px-4 py-3">
+          {/* 标题行 */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-2xl font-semibold">每日放送</h1>
+              {/* 数据统计 */}
+              <div className="text-xs text-muted-foreground">
+                {isInSearch ? (
+                  `搜索到 ${filteredItems.length} 部`
+                ) : (
+                  `共 ${filteredItems.length} 部`
+                )}
+              </div>
+            </div>
+            <div className="">
+              <WeekdayTab
+                className="hidden xl:flex"
+                disabled={isInSearch}
+                activated={currentTab}
+                onClick={handleTabClick}
+                onSiteFilter={handleSiteFilter}
+                activeSiteFilter={activeSiteFilter}
+                availableSites={availableSites}
+              />
+            </div>
+            <div className="flex gap-2">
+              <SearchInput
+                className="hidden w-full max-w-md xl:flex"
+                onSearchInput={handleSearchInput}
+                placeholder="搜索番组名称..."
+              />
+              <button
+                onClick={() => setShowCacheManager(!showCacheManager)}
+                className="p-2 rounded-full hover:bg-accent transition-colors"
+                title="缓存管理"
+                >
+                <Settings className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+          </div>
 
-      {/* 缓存管理器 */}
-      {showCacheManager && (
-        <CacheManager />
-      )}
+          {/* 搜索栏 */}
+          <div className="hidden mb-3 max-xl:flex flex-col gap-2">
+            <SearchInput
+              onSearchInput={handleSearchInput}
+              placeholder="搜索番组名称..."
+            />
+            <WeekdayTab
+              className="mx-auto"
+              disabled={isInSearch}
+              activated={currentTab}
+              onClick={handleTabClick}
+              onSiteFilter={handleSiteFilter}
+              activeSiteFilter={activeSiteFilter}
+              availableSites={availableSites}
+            />
+          </div>
 
-      {/* 搜索栏 */}
-      <Top onSearchInput={handleSearchInput} />
-
-      {/* 筛选设置状态 */}
-      {(common.newOnly || common.watchingOnly || common.hoistWatching || activeSiteFilter) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">当前筛选设置</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
+          {/* 筛选设置状态 - 紧凑显示 */}
+          {(common.newOnly || common.watchingOnly || common.hoistWatching || activeSiteFilter) && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
               {common.newOnly && (
-                <Badge variant="secondary">仅显示新番</Badge>
+                <Badge variant="secondary" className="text-xs">仅显示新番</Badge>
               )}
               {common.watchingOnly && (
-                <Badge variant="secondary">仅显示在看</Badge>
+                <Badge variant="secondary" className="text-xs">仅显示在看</Badge>
               )}
               {common.hoistWatching && (
-                <Badge variant="secondary">置顶在看</Badge>
+                <Badge variant="secondary" className="text-xs">置顶在看</Badge>
               )}
               {activeSiteFilter && (
-                <Badge variant="secondary">
+                <Badge variant="secondary" className="text-xs">
                   配信: {availableSites.find(s => s.id === activeSiteFilter)?.name || activeSiteFilter}
                 </Badge>
               )}
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 周几选择和配信筛选 */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <WeekdayTab
-          disabled={isInSearch}
-          activated={currentTab}
-          onClick={handleTabClick}
-          onSiteFilter={handleSiteFilter}
-          activeSiteFilter={activeSiteFilter}
-          availableSites={availableSites}
-        />
-
-        {/* 数据统计 */}
-        <div className="text-sm text-muted-foreground">
-          {isInSearch ? (
-            `搜索到 ${filteredItems.length} 部作品`
-          ) : (
-            `共 ${filteredItems.length} 部作品`
           )}
         </div>
       </div>
 
-      {/* 番组列表 */}
-      <BangumiItemTable
-        items={filteredItems}
-        siteMeta={modifiedSiteMeta}
-        emptyText={isInSearch ? '无搜索结果' : '暂无番组'}
-      />
+      <div className="container mx-auto p-4 space-y-6">
+        {/* 缓存管理器 */}
+        {showCacheManager && (
+          <CacheManager />
+        )}
 
-      {/* 数据更新时间 */}
-      {onairData?.updated && (
-        <div className="text-center text-sm text-muted-foreground mt-8">
-          数据更新时间: {new Date(onairData.updated).toLocaleString('zh-CN')}
-        </div>
-      )}
+        {/* 番组列表 */}
+        <BangumiItemTable
+          items={filteredItems}
+          siteMeta={modifiedSiteMeta}
+          emptyText={isInSearch ? '无搜索结果' : '暂无番组'}
+        />
+
+        {/* 数据更新时间 */}
+        {onairData?.updated && (
+          <div className="text-center text-sm text-muted-foreground mt-8">
+            数据更新时间: {new Date(onairData.updated).toLocaleString('zh-CN')}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-export default App;
+export default BgmList;

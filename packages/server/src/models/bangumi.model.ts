@@ -293,6 +293,7 @@ class BangumiModel {
 
       let processedCount = 0;
       let successCount = 0;
+      let skippedCount = 0;
       const totalCount = items.length;
       const currentFailedItems: FailedItem[] = [];
 
@@ -304,52 +305,68 @@ class BangumiModel {
         await Promise.all(
           chunk.map(async (item) => {
             try {
-              // 刷新图片缓存
+              // 刷新图片缓存 - 只有缓存中没有数据时才刷新
               const subjectId = this.getBangumiSubjectId(item);
               if (subjectId) {
-                try {
-                  await this.fetchBangumiImage(subjectId);
-                  successCount++;
-                } catch (error) {
-                  console.error(
-                    `[Cache] Failed to refresh image for item ${item.title} (${subjectId}):`,
-                    error
-                  );
-                  currentFailedItems.push({
-                    id: item.id,
-                    type: 'image',
-                    subjectId,
-                    retryCount: 0,
-                    lastRetryTime: Date.now(),
-                  });
+                if (this.imageCache[subjectId]) {
+                  // 缓存中已存在，跳过刷新
+                  skippedCount++;
+                  // console.log(
+                  //   `[Cache] Skipping image refresh for ${item.title} (${subjectId}) - already cached`
+                  // );
+                } else {
+                  try {
+                    await this.fetchBangumiImage(subjectId);
+                    successCount++;
+                  } catch (error) {
+                    console.error(
+                      `[Cache] Failed to refresh image for item ${item.title} (${subjectId}):`,
+                      error
+                    );
+                    currentFailedItems.push({
+                      id: item.id,
+                      type: 'image',
+                      subjectId,
+                      retryCount: 0,
+                      lastRetryTime: Date.now(),
+                    });
+                  }
                 }
               }
 
-              // 刷新 PV bvid 缓存
+              // 刷新 PV bvid 缓存 - 只有缓存中没有数据时才刷新
               const mediaId = this.getBilibiliMediaId(item);
               if (mediaId) {
-                try {
-                  await this.fetchPvBvid(mediaId);
-                  successCount++;
-                } catch (error) {
-                  console.error(
-                    `[Cache] Failed to refresh PV for item ${item.title} (${mediaId}):`,
-                    error
+                if (this.pvBvidCache[mediaId]) {
+                  // 缓存中已存在，跳过刷新
+                  skippedCount++;
+                  console.log(
+                    `[Cache] Skipping PV refresh for ${item.title} (${mediaId}) - already cached`
                   );
-                  currentFailedItems.push({
-                    id: item.id,
-                    type: 'pv',
-                    mediaId,
-                    retryCount: 0,
-                    lastRetryTime: Date.now(),
-                  });
+                } else {
+                  try {
+                    await this.fetchPvBvid(mediaId);
+                    successCount++;
+                  } catch (error) {
+                    console.error(
+                      `[Cache] Failed to refresh PV for item ${item.title} (${mediaId}):`,
+                      error
+                    );
+                    currentFailedItems.push({
+                      id: item.id,
+                      type: 'pv',
+                      mediaId,
+                      retryCount: 0,
+                      lastRetryTime: Date.now(),
+                    });
+                  }
                 }
               }
 
               processedCount++;
               if (processedCount % 50 === 0) {
                 console.log(
-                  `[Cache] Progress: ${processedCount}/${totalCount} items processed, ${successCount} successful`
+                  `[Cache] Progress: ${processedCount}/${totalCount} items processed, ${successCount} successful, ${skippedCount} skipped`
                 );
               }
             } catch (error) {
@@ -368,7 +385,7 @@ class BangumiModel {
       }
 
       console.log(
-        `[Cache] Cache refresh completed: ${processedCount}/${totalCount} items processed, ${successCount} successful, ${currentFailedItems.length} failed`
+        `[Cache] Cache refresh completed: ${processedCount}/${totalCount} items processed, ${successCount} successful, ${skippedCount} skipped, ${currentFailedItems.length} failed`
       );
 
       // 更新失败项列表

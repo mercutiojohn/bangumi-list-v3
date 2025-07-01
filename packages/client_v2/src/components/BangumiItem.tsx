@@ -2,7 +2,7 @@ import type { Item, SiteMeta } from 'bangumi-list-v3-shared';
 // import { SiteType } from 'bangumi-list-v3-shared'; // TODO: fix it
 import { format, isSameQuarter } from 'date-fns';
 import { get } from 'lodash';
-import { Heart, Globe, Calendar, Clock, ExternalLink, ImageIcon, MoreHorizontal, Play } from "lucide-react";
+import { Heart, Globe, Calendar, Clock, ExternalLink, Image, MoreHorizontal, Play } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { getBroadcastTimeString, SiteType } from "@/lib/bangumi-utils";
 import BangumiLinkItem from "./BangumiLinkItem";
+import { useState } from 'react';
 
 interface BangumiItemProps {
   className?: string;
@@ -28,8 +29,9 @@ export default function BangumiItem({
   isWatching = false,
   onWatchingClick,
 }: BangumiItemProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const broadcastTimeString = getBroadcastTimeString(item, siteMeta);
-  const titleCN = get(item, 'titleTranslate.zh-Hans[0]', '');
+  const titleCN = get(item, 'titleTranslate.zh-Hans[0]', '') as string;
   const nowDate = new Date();
   const beginDate = new Date(item.begin);
   const beginString = format(beginDate, 'yyyy-MM-dd');
@@ -70,9 +72,16 @@ export default function BangumiItem({
     onWatchingClick?.();
   };
 
-  // 渲染图片内容
-  const renderImageContent = () => {
-    const imageElement = (
+  const handleCardClick = () => {
+    setIsDialogOpen(true);
+  };
+
+  // 简化的卡片展示（用作 Dialog 触发器）
+  const cardPreview = (
+    <div
+      className="flex flex-col gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+      onClick={handleCardClick}
+    >
       <div className="relative">
         {item.image ? (
           <img
@@ -96,7 +105,7 @@ export default function BangumiItem({
             item.image ? "hidden" : "flex"
           )}
         >
-          <ImageIcon className="w-12 h-12 text-gray-400" />
+          <Image className="w-12 h-12 text-gray-400" />
         </div>
 
         {/* PV 播放按钮指示器 */}
@@ -108,40 +117,46 @@ export default function BangumiItem({
           </div>
         )}
       </div>
-    );
 
-    // 如果有 PV bvid，将图片包装在 Popover 中
-    if (item.previewEmbedLink) {
-      return (
-        <Popover>
-          <PopoverTrigger asChild>
-            <div className="cursor-pointer">
-              {imageElement}
-            </div>
-          </PopoverTrigger>
-          <PopoverContent className="w-96 p-0" align="start" side="right">
-            <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-              <iframe
-                src={item.previewEmbedLink}
-                className="w-full h-full border-0"
-                allowFullScreen
-                title={`${titleCN || item.title} PV`}
+      <div className="">
+        <h3 className="font-semibold text-xl leading-tight mb-2 line-clamp-2">
+          {titleCN || item.title}
+
+          {!isArchive && isNew && (
+            <Badge variant="secondary" className="ml-2 text-xs bg-orange-100 text-orange-800">
+              NEW
+            </Badge>
+          )}
+        </h3>
+        {titleCN && (
+          <p className="text-sm text-muted-foreground line-clamp-1 mb-3">
+            {item.title}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  // 详细的卡片内容（在 Dialog 中展示）
+  const cardDetail = (
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto">
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* 番组图片 */}
+        <div className="flex-shrink-0">
+          <div className="relative">
+            {item.image ? (
+              <img
+                src={item.image}
+                alt={titleCN || item.title}
+                className="w-48 h-64 object-cover rounded-lg bg-gray-100 shadow-md"
+                loading="lazy"
               />
-            </div>
-          </PopoverContent>
-        </Popover>
-      );
-    }
-
-    return imageElement;
-  };
-
-  return (
-    <Card className={cn("transition-shadow hover:shadow-md py-0", className)}>
-      <div className="flex">
-        {/* 番组图片 - 左侧大图 */}
-        <div className="shrink-0 p-3">
-          {renderImageContent()}
+            ) : (
+              <div className="w-48 h-64 bg-gray-100 rounded-lg flex items-center justify-center shadow-md">
+                <div className="w-12 h-12 text-gray-400">📺</div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 番组信息 - 右侧内容 */}
@@ -281,6 +296,31 @@ export default function BangumiItem({
           </div>
         </div>
       </div>
-    </Card>
+    </div>
+  );
+
+  return (
+    <>
+      {cardPreview}
+
+      {/* 简易 Dialog 实现 */}
+      {isDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={() => setIsDialogOpen(false)}
+          />
+          <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto m-4">
+            <button
+              onClick={() => setIsDialogOpen(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 z-10"
+            >
+              ✕
+            </button>
+            {cardDetail}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

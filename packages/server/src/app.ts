@@ -14,7 +14,9 @@ import './types';
   await bangumiModel.update(false);
 
   const app = express();
-  app.use(pinoHttp({ logger }));
+  // if (process.env.NODE_ENV !== 'development') {
+  //   app.use(pinoHttp({ logger }));
+  // }
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use('/api/v1', apiV1Routes);
