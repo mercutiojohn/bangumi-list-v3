@@ -241,7 +241,6 @@ class BangumiModel {
         }
       },
       {
-        scheduled: true,
         timezone: 'Asia/Shanghai',
       }
     );
