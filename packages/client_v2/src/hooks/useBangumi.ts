@@ -18,7 +18,7 @@ interface CacheStatus {
   };
 }
 
-// SWR fetcher function
+// SWR fetcher function with proper typing
 const fetcher = (url: string) => apiClient.request('GET', url);
 
 // Hook for on-air bangumi data

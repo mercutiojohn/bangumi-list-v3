@@ -35,7 +35,7 @@ class APIClient {
     );
   }
 
-  async request<T>(
+  async request<T = any>(
     method: Method,
     url: string,
     params?: Record<string, unknown>,
