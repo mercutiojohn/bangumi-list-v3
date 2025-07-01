@@ -264,13 +264,6 @@ function BgmList() {
             emptyText="无搜索结果"
           />
         )}
-
-        {/* 数据更新时间 */}
-        {onairData?.updated && (
-          <div className="text-center text-sm text-muted-foreground mt-8">
-            数据更新时间: {new Date(onairData.updated).toLocaleString('zh-CN')}
-          </div>
-        )}
       </div>
     </PageLayout>
   );
