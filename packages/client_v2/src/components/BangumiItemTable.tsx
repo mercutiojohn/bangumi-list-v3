@@ -35,7 +35,7 @@ export default function BangumiItemTable({
   useEffect(() => {
     if (bangumi.version > lastBangumiPreferenceVersion.current) {
       if (isLogin) {
-        updateBangumiPreference(bangumi).catch(console.error);
+        updateBangumiPreference({ ...bangumi, watching: [...bangumi.watching] }).catch(console.error);
       } else {
         updateBangumiPreferenceLocal(bangumi);
       }
