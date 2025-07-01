@@ -323,7 +323,7 @@ class BangumiModel {
                       error
                     );
                     currentFailedItems.push({
-                      id: item.id,
+                      id: item.id || subjectId,
                       type: 'image',
                       subjectId,
                       retryCount: 0,
