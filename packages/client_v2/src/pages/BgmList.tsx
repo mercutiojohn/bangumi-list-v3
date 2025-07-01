@@ -1,16 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { useOnAirData, useSiteData, usePreference } from "@/hooks";
 import {
-  Top,
   WeekdayTab,
   BangumiItemTable,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Badge,
   CacheManager,
-  SearchInput
+  SearchInput,
 } from "@/components";
 import {
   Weekday,
@@ -23,6 +18,8 @@ import {
   SiteType
 } from "@/lib/bangumi-utils";
 import { Settings } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
 const bangumiTemplates = {
   'bangumi.tv': 'https://bgm.tv/subject/{{id}}',
@@ -47,7 +44,6 @@ function BgmList() {
   const [searchText, setSearchText] = useState<string>('');
   const [hoistWatchingIds, setHoistWatchingIds] = useState<string[]>([]);
   const [activeSiteFilter, setActiveSiteFilter] = useState<string>('');
-  const [showCacheManager, setShowCacheManager] = useState<boolean>(false);
 
   const isInSearch = !!searchText;
 
@@ -198,9 +194,6 @@ function BgmList() {
               disabled={isInSearch}
               activated={currentTab}
               onClick={handleTabClick}
-              onSiteFilter={handleSiteFilter}
-              activeSiteFilter={activeSiteFilter}
-              availableSites={availableSites}
             />
             <div className="flex gap-2">
               <SearchInput
@@ -208,13 +201,18 @@ function BgmList() {
                 onSearchInput={handleSearchInput}
                 placeholder="搜索番组名称..."
               />
-              <button
-                onClick={() => setShowCacheManager(!showCacheManager)}
-                className="p-2 rounded-full hover:bg-accent transition-colors"
-                title="缓存管理"
-                >
-                <Settings className="h-5 w-5 text-muted-foreground" />
-              </button>
+              <Popover>
+                <PopoverTrigger>
+                  <Button
+                    variant="outline"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-96">
+                  <CacheManager />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -258,11 +256,6 @@ function BgmList() {
       </div>
 
       <div className="container mx-auto p-4 space-y-6">
-        {/* 缓存管理器 */}
-        {showCacheManager && (
-          <CacheManager />
-        )}
-
         {/* 番组列表 */}
         <BangumiItemTable
           items={filteredItems}

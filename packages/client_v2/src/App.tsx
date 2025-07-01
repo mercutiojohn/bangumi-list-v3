@@ -9,7 +9,8 @@ import {
   CardHeader,
   CardTitle,
   Badge,
-  CacheManager
+  CacheManager,
+  Button,
 } from "@/components";
 import {
   Weekday,
@@ -22,6 +23,7 @@ import {
   SiteType
 } from "@/lib/bangumi-utils";
 import { Settings } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 // 站点域名模板（复刻原client的逻辑）
 const bangumiTemplates = {
@@ -51,7 +53,6 @@ function App() {
   const [searchText, setSearchText] = useState<string>('');
   const [hoistWatchingIds, setHoistWatchingIds] = useState<string[]>([]);
   const [activeSiteFilter, setActiveSiteFilter] = useState<string>('');
-  const [showCacheManager, setShowCacheManager] = useState<boolean>(false);
 
   const isInSearch = !!searchText;
 
@@ -154,10 +155,6 @@ function App() {
     setSearchText(text);
   };
 
-  const handleSiteFilter = (site: string) => {
-    setActiveSiteFilter(site);
-  };
-
   // 加载状态
   if (onairLoading || siteLoading) {
     return (
@@ -186,20 +183,18 @@ function App() {
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-4">
           <h1 className="text-4xl font-bold">每日放送</h1>
-          <button
-            onClick={() => setShowCacheManager(!showCacheManager)}
-            className="p-2 rounded-md hover:bg-gray-100 transition-colors"
-            title="缓存管理"
-          >
-            <Settings className="h-5 w-5 text-muted-foreground" />
-          </button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button>
+                <Settings className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-96">
+              <CacheManager />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
-
-      {/* 缓存管理器 */}
-      {showCacheManager && (
-        <CacheManager />
-      )}
 
       {/* 搜索栏 */}
       <Top onSearchInput={handleSearchInput} />
@@ -237,9 +232,6 @@ function App() {
           disabled={isInSearch}
           activated={currentTab}
           onClick={handleTabClick}
-          onSiteFilter={handleSiteFilter}
-          activeSiteFilter={activeSiteFilter}
-          availableSites={availableSites}
         />
 
         {/* 数据统计 */}

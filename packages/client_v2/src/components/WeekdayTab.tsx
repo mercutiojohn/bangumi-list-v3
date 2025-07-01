@@ -18,10 +18,6 @@ interface WeekdayTabProps {
   onClick?: (tab: Weekday) => void;
   disabled?: boolean;
   className?: string;
-  // 新增配信筛选相关 props
-  onSiteFilter?: (site: string) => void;
-  activeSiteFilter?: string;
-  availableSites?: Array<{ id: string; name: string }>;
 }
 
 export default function WeekdayTab({
@@ -29,9 +25,6 @@ export default function WeekdayTab({
   onClick,
   disabled = false,
   className,
-  onSiteFilter,
-  activeSiteFilter = '',
-  availableSites = []
 }: WeekdayTabProps) {
   const buttons = tabItems.map(([tab, text]) => {
     const isActivated = tab === activated;
@@ -56,11 +49,6 @@ export default function WeekdayTab({
     );
   });
 
-  const handleSiteChange = (value: string) => {
-    // 将 "all" 转换为空字符串传递给父组件
-    onSiteFilter?.(value === "all" ? "" : value);
-  };
-
   return (
     <div className={cn("space-y-3", className)}>
       {/* 周几选择 */}
@@ -79,30 +67,6 @@ export default function WeekdayTab({
         </Button>
         {buttons}
       </div>
-
-      {/* 配信站点筛选 */}
-      {availableSites.length > 0 && false && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">配信筛选:</span>
-          <Select
-            value={activeSiteFilter || "all"}
-            onValueChange={handleSiteChange}
-            disabled={disabled}
-          >
-            <SelectTrigger className="w-[180px] h-8">
-              <SelectValue placeholder="选择配信站点" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部站点</SelectItem>
-              {availableSites.map((site) => (
-                <SelectItem key={site.id} value={site.id}>
-                  {site.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
     </div>
   );
 }

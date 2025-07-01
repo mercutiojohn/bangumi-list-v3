@@ -48,7 +48,7 @@ export function CacheManager() {
   }
 
   return (
-    <Card>
+    <>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Database className="h-5 w-5" />
@@ -147,6 +147,6 @@ export function CacheManager() {
           <p>• 手动刷新会立即启动缓存更新任务</p>
         </div>
       </CardContent>
-    </Card>
+    </>
   );
 }
