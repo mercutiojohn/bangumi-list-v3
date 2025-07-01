@@ -178,9 +178,9 @@ function BgmList() {
 
   return (
     <div className="">
-      <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border z-50">
-        <div className="container mx-auto px-4 py-3">
-          {/* 标题行 */}
+      <div className="sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border z-50">
+        <div className="container mx-auto px-4 py-3 flex flex-col gap-4">
+          {/* 标题 */}
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-2">
               <h1 className="text-2xl font-semibold">每日放送</h1>
@@ -193,17 +193,15 @@ function BgmList() {
                 )}
               </div>
             </div>
-            <div className="">
-              <WeekdayTab
-                className="hidden xl:flex"
-                disabled={isInSearch}
-                activated={currentTab}
-                onClick={handleTabClick}
-                onSiteFilter={handleSiteFilter}
-                activeSiteFilter={activeSiteFilter}
-                availableSites={availableSites}
-              />
-            </div>
+            <WeekdayTab
+              className="hidden xl:flex"
+              disabled={isInSearch}
+              activated={currentTab}
+              onClick={handleTabClick}
+              onSiteFilter={handleSiteFilter}
+              activeSiteFilter={activeSiteFilter}
+              availableSites={availableSites}
+            />
             <div className="flex gap-2">
               <SearchInput
                 className="hidden w-full max-w-md xl:flex"

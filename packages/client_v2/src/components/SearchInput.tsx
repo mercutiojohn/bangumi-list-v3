@@ -36,7 +36,7 @@ export default function SearchInput({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         disabled={disabled}
-        className="pl-9 pr-9"
+        className="pl-9 pr-9 bg-card"
       />
       {value && (
         <Button
