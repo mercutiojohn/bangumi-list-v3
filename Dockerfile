@@ -11,6 +11,10 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /app
 COPY . .
 
+# 创建必要的目录
+RUN mkdir -p /app/packages/server/.run/logs
+RUN mkdir -p /app/.run
+
 EXPOSE 3000
 
 RUN ./build.sh
