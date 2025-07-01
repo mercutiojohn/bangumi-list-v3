@@ -66,3 +66,12 @@ export interface SeasonList {
   version: number;
   items: string[];
 }
+
+export interface OnAirData {
+  items: Item[];
+}
+
+export interface SeasonData {
+  version: number;
+  items: string[];
+}
