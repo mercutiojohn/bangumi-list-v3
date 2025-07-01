@@ -1,0 +1,117 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build project
+      run: |
+        npm run build
+        
+    - name: Build Docker image
+      run: |
+        docker build --tag bangumi-list-v3:latest --build-arg GA_ID=${{ secrets.GA_ID }} .
+        
+    - name: Save Docker image
+      run: |
+        docker save bangumi-list-v3:latest -o bangumi-list-v3.tar
+        
+    - name: Create deployment files
+      run: |
+        # 创建 docker-compose.yml
+        cat > docker-compose.yml << 'EOF'
+        version: '3.8'
+        services:
+          bangumi-list:
+            image: bangumi-list-v3:latest
+            container_name: bangumi-list-v3
+            ports:
+              - "3000:3000"
+            restart: unless-stopped
+            environment:
+              - NODE_ENV=production
+            volumes:
+              - ./data:/app/.run
+            env_file:
+              - .env
+        EOF
+        
+        # 创建 .env 文件模板
+        cat > .env.example << 'EOF'
+        NODE_ENV=production
+        PORT=3000
+        # 请根据需要添加其他环境变量
+        # DATABASE_URL=
+        # JWT_SECRET=
+        EOF
+        
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+        
+    - name: Create deployment directory
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+          mkdir -p /opt/bangumi-list-v3
+        "
+        
+    - name: Upload files to server
+      run: |
+        scp -i ~/.ssh/id_rsa bangumi-list-v3.tar docker-compose.yml .env.example ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/opt/bangumi-list-v3/
+        
+    - name: Deploy on server
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+          cd /opt/bangumi-list-v3
+          
+          # 停止旧容器
+          docker-compose down 2>/dev/null || docker stop bangumi-list-v3 2>/dev/null || true
+          docker rm bangumi-list-v3 2>/dev/null || true
+          
+          # 加载新镜像
+          docker load -i bangumi-list-v3.tar
+          
+          # 如果不存在 .env 文件，从模板创建
+          if [ ! -f .env ]; then
+            cp .env.example .env
+            echo '请编辑 .env 文件配置环境变量'
+          fi
+          
+          # 启动新容器
+          docker-compose up -d
+          
+          # 清理镜像文件
+          rm bangumi-list-v3.tar
+          
+          echo '部署完成！'
+          echo '应用已启动在端口 3000'
+          docker ps | grep bangumi-list
+        "
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        rm -f ~/.ssh/id_rsa
+        rm -f bangumi-list-v3.tar
+

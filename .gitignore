@@ -80,3 +80,4 @@ dist/
 .env
 stats.json
 .next
+DEPLOYMENT.md
