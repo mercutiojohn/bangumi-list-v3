@@ -13,7 +13,7 @@
   "main": "index.js",
   "scripts": {
     "clean": "npm run clean --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w packages/shared && npm run build -w packages/server && npm run build -w packages/client_v2",
     "build:shared": "npm run build -w packages/shared",
     "dev:client": "npm run dev -w packages/client",
     "dev:client-v2": "npm run dev -w packages/client_v2",
