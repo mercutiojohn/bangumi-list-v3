@@ -46,7 +46,8 @@ function App() {
   const { common, bangumi } = usePreference();
 
   // 本地状态
-  const [currentTab, setCurrentTab] = useState<Weekday>(new Date().getDay());
+  // const [currentTab, setCurrentTab] = useState<Weekday>(new Date().getDay());
+  const [currentTab, setCurrentTab] = useState<Weekday>(Weekday.ALL);
   const [searchText, setSearchText] = useState<string>('');
   const [hoistWatchingIds, setHoistWatchingIds] = useState<string[]>([]);
   const [activeSiteFilter, setActiveSiteFilter] = useState<string>('');
