@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { getBroadcastTimeString, SiteType } from "@/lib/bangumi-utils";
 import BangumiLinkItem from "./BangumiLinkItem";
@@ -72,22 +73,15 @@ export default function BangumiItem({
     onWatchingClick?.();
   };
 
-  const handleCardClick = () => {
-    setIsDialogOpen(true);
-  };
-
   // 简化的卡片展示（用作 Dialog 触发器）
   const cardPreview = (
-    <div
-      className="flex flex-col gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-      onClick={handleCardClick}
-    >
+    <div className="flex flex-col gap-3 cursor-pointer hover:opacity-80 transition-opacity">
       <div className="relative">
         {item.image ? (
           <img
             src={item.image}
             alt={titleCN || item.title}
-            className="w-32 h-44 sm:w-40 sm:h-56 lg:w-48 lg:h-64 object-cover rounded-lg bg-gray-100 shadow-md"
+            className="w-full aspect-[3/4] object-cover rounded-lg bg-gray-100 shadow-md"
             loading="lazy"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -101,7 +95,7 @@ export default function BangumiItem({
         ) : null}
         <div
           className={cn(
-            "w-32 h-44 sm:w-40 sm:h-56 lg:w-48 lg:h-64 bg-gray-100 rounded-lg flex items-center justify-center shadow-md",
+            "w-full aspect-[3/4] bg-gray-100 rounded-lg flex items-center justify-center shadow-md",
             item.image ? "hidden" : "flex"
           )}
         >
@@ -139,187 +133,172 @@ export default function BangumiItem({
 
   // 详细的卡片内容（在 Dialog 中展示）
   const cardDetail = (
-    <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto">
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* 番组图片 */}
-        <div className="flex-shrink-0">
-          <div className="relative">
-            {item.image ? (
-              <img
-                src={item.image}
-                alt={titleCN || item.title}
-                className="w-48 h-64 object-cover rounded-lg bg-gray-100 shadow-md"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-48 h-64 bg-gray-100 rounded-lg flex items-center justify-center shadow-md">
-                <div className="w-12 h-12 text-gray-400">📺</div>
-              </div>
+    <div className="flex flex-col md:flex-row gap-6">
+      {/* 番组图片 */}
+      <div className="flex-shrink-0">
+        <div className="relative">
+          {item.image ? (
+            <img
+              src={item.image}
+              alt={titleCN || item.title}
+              className="w-48 h-64 object-cover rounded-lg bg-gray-100 shadow-md"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-48 h-64 bg-gray-100 rounded-lg flex items-center justify-center shadow-md">
+              <div className="w-12 h-12 text-gray-400">📺</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 番组信息 - 右侧内容 */}
+      <div className="flex-1 min-w-0 space-y-4">
+        {/* 标题和在看按钮 */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-xl leading-tight mb-2 line-clamp-2">
+              {titleCN || item.title}
+
+              {!isArchive && isNew && (
+                <Badge variant="secondary" className="ml-2 text-xs bg-orange-100 text-orange-800">
+                  NEW
+                </Badge>
+              )}
+            </h3>
+            {titleCN && (
+              <p className="text-sm text-muted-foreground line-clamp-1 mb-3">
+                {item.title}
+              </p>
             )}
+          </div>
+
+          {!isArchive && (
+            <Button
+              variant={isWatching ? "default" : "outline"}
+              size="sm"
+              onClick={handleWatchingClick}
+              className={cn(
+                "shrink-0 transition-colors",
+                isWatching && "bg-red-500 hover:bg-red-600 text-white"
+              )}
+            >
+              <Heart className={cn("h-4 w-4", isWatching && "fill-current")} />
+              <span className="sr-only">{isWatching ? '取消在看' : '在看'}</span>
+            </Button>
+          )}
+        </div>
+
+        {/* 播放时间信息 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div>
+              <div className="font-medium">日本</div>
+              <div className="text-muted-foreground">
+                {broadcastTimeString.jp || '暂无'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div>
+              <div className="font-medium">大陆</div>
+              <div className="text-muted-foreground">
+                {broadcastTimeString.cn || '暂无'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div>
+              <div className="font-medium">开播</div>
+              <div className="text-muted-foreground">{beginString}</div>
+            </div>
           </div>
         </div>
 
-        {/* 番组信息 - 右侧内容 */}
-        <div className="flex-1 min-w-0 space-y-4 py-3 pr-3">
-          {/* 标题和在看按钮 */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-xl leading-tight mb-2 line-clamp-2">
-                {titleCN || item.title}
-
-                {!isArchive && isNew && (
-                  <Badge variant="secondary" className="ml-2 text-xs bg-orange-100 text-orange-800">
-                    NEW
-                  </Badge>
-                )}
-              </h3>
-              {titleCN && (
-                <p className="text-sm text-muted-foreground line-clamp-1 mb-3">
-                  {item.title}
-                </p>
-              )}
-            </div>
-
-            {!isArchive && (
-              <Button
-                variant={isWatching ? "default" : "outline"}
-                size="sm"
-                onClick={handleWatchingClick}
-                className={cn(
-                  "shrink-0 transition-colors",
-                  isWatching && "bg-red-500 hover:bg-red-600 text-white"
-                )}
-              >
-                <Heart className={cn("h-4 w-4", isWatching && "fill-current")} />
-                <span className="sr-only">{isWatching ? '取消在看' : '在看'}</span>
+        {/* 链接信息 - 使用 Popover */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {item.officialSite && (
+              <Button variant="link" size="sm" asChild className="h-auto p-1 text-sm">
+                <a href={item.officialSite} rel="noopener" target="_blank" className="inline-flex items-center gap-1">
+                  官网
+                  <ExternalLink className="h-3 w-3" />
+                </a>
               </Button>
             )}
           </div>
 
-          {/* 播放时间信息 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div>
-                <div className="font-medium">日本</div>
-                <div className="text-muted-foreground">
-                  {broadcastTimeString.jp || '暂无'}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div>
-                <div className="font-medium">大陆</div>
-                <div className="text-muted-foreground">
-                  {broadcastTimeString.cn || '暂无'}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div>
-                <div className="font-medium">开播</div>
-                <div className="text-muted-foreground">{beginString}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* 链接信息 - 使用 Popover */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {item.officialSite && (
-                <Button variant="link" size="sm" asChild className="h-auto p-1 text-sm">
-                  <a href={item.officialSite} rel="noopener" target="_blank" className="inline-flex items-center gap-1">
-                    官网
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+          {(infoSites.length > 0 || onairSites.length > 0 || resourceSites.length > 0) && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 px-3">
+                  <Globe className="h-4 w-4 mr-1" />
+                  更多链接
+                  <MoreHorizontal className="h-4 w-4 ml-1" />
                 </Button>
-              )}
-            </div>
-
-            {(infoSites.length > 0 || onairSites.length > 0 || resourceSites.length > 0) && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 px-3">
-                    <Globe className="h-4 w-4 mr-1" />
-                    更多链接
-                    <MoreHorizontal className="h-4 w-4 ml-1" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80" align="end">
-                  <div className="space-y-4">
-                    {/* 信息站点 */}
-                    {infoSites.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Globe className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">信息</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {infoSites}
-                        </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-4">
+                  {/* 信息站点 */}
+                  {infoSites.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">信息</span>
                       </div>
-                    )}
-
-                    {/* 配信站点 */}
-                    {onairSites.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Globe className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">配信</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {onairSites}
-                        </div>
+                      <div className="flex flex-wrap gap-1">
+                        {infoSites}
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {/* 下载站点 */}
-                    {resourceSites.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Globe className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">下载</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {resourceSites}
-                        </div>
+                  {/* 配信站点 */}
+                  {onairSites.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">配信</span>
                       </div>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
+                      <div className="flex flex-wrap gap-1">
+                        {onairSites}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 下载站点 */}
+                  {resourceSites.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">下载</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {resourceSites}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
     </div>
   );
 
   return (
-    <>
-      {cardPreview}
-
-      {isDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="fixed inset-0 bg-black/50"
-            onClick={() => setIsDialogOpen(false)}
-          />
-          <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto m-4">
-            <button
-              onClick={() => setIsDialogOpen(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 z-10"
-            >
-              ✕
-            </button>
-            {cardDetail}
-          </div>
-        </div>
-      )}
-    </>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <DialogTrigger asChild>
+        {cardPreview}
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        {cardDetail}
+      </DialogContent>
+    </Dialog>
   );
 }
