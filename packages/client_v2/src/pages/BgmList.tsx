@@ -195,7 +195,7 @@ function BgmList() {
       <PageHeader
         leftContent={
           <div className="flex items-baseline gap-2">
-            <h1 className="text-2xl font-semibold">每日放送</h1>
+            <h1 className="text-2xl font-semibold">当季新番</h1>
           </div>
         }
         centerContent={
@@ -221,7 +221,15 @@ function BgmList() {
       />
 
       <div className="container mx-auto p-4 space-y-6">
-        新番日历
+        <h2 className="text-2xl font-bold">新番日历</h2>
+        {/* 数据统计 */}
+        <div className="text-xs text-muted-foreground">
+          {isInSearch ? (
+            `搜索到 ${dayItems.length} 部`
+          ) : (
+            `共 ${dayItems.length} 部`
+          )}
+        </div>
         <WeekdayTab
           disabled={false}
           activated={currentTab}
@@ -233,14 +241,14 @@ function BgmList() {
           emptyText={`周${Weekday[currentTab]}暂无番组`}
           size="square"
         />
-        全部番组列表
 
+        <h2 className="text-2xl font-bold">全部番组</h2>
         {/* 数据统计 */}
         <div className="text-xs text-muted-foreground">
           {isInSearch ? (
-            `搜索到 ${filteredItems.length} 部`
+            `搜索到 ${allItems.length} 部`
           ) : (
-            `共 ${filteredItems.length} 部`
+            `共 ${allItems.length} 部`
           )}
         </div>
         <BangumiItemTable

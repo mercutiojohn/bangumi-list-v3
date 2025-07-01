@@ -10,11 +10,11 @@ export default function ArchivePage() {
           <h1 className="text-2xl font-bold">历史归档</h1>
         }
       />
-      <div className="w-[300px] bg-muted h-full">
+      <div className="w-[300px] h-full">
         <ArchiveCalendar />
       </div>
       <div className="flex-1">
-        123
+        等着吧，快写完了。
       </div>
     </PageLayout>
   );

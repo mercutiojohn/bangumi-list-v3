@@ -44,7 +44,7 @@ export const MENU_ITEMS = [
     icon: Newspaper,
   },
   {
-    title: "历史",
+    title: "历史归档",
     path: "/archive",
     icon: Compass,
   },
