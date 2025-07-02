@@ -159,7 +159,7 @@ jobs:
           docker-compose up -d
 
           # 清理镜像文件
-          rm -f bangumi-list-v3.tar
+          rm bangumi-list-v3.tar
 
           echo '部署完成！'
           echo '应用已启动在端口 3000'
