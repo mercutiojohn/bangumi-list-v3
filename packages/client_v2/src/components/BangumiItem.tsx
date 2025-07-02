@@ -76,7 +76,7 @@ export default function BangumiItem({
 
   // 使用完整的番剧数据或回退到列表数据
   const displayItem = itemData || item;
-  const hasRssData = displayItem.rssContent?.items?.length > 0;
+  const hasRssData = (displayItem.rssContent?.items?.length ?? 0) > 0;
 
   // RSS数据处理
   const rssItems: ParsedRssItem[] = [];
