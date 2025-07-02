@@ -330,7 +330,7 @@ class BangumiModel {
   // 获取RSS内容的包装方法
   private async fetchRssContent(rssId: string): Promise<void> {
     const content = await rssService.fetchContent(rssId);
-    cacheService.setRssCache(rssId, content);
+    cacheService.setRssCache(rssId, content ?? null);
   }
 
   // 启动时初始刷新
