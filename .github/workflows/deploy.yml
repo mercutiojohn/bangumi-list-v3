@@ -97,7 +97,7 @@ jobs:
         DATA_FILE=data.json
 
         # RSS 服务配置
-        RSS_PROXY_HOST=127.0.0.1
+        RSS_PROXY_HOST=host.docker.internal
         RSS_PROXY_PORT=7890
         RSS_DEBUG_LOGS=false
         RSS_MAX_RETRIES=3
