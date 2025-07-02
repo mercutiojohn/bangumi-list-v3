@@ -48,9 +48,9 @@ export interface Item {
   end: string;
   comment?: string;
   sites: BangumiSite[];
-  image?: string;
-  previewEmbedLink?: string;
-  rssContent?: RssContent;
+  image: string | null;
+  previewEmbedLink: string | null;
+  rssContent: RssContent | null;
 }
 
 export interface ItemList {

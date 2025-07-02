@@ -77,7 +77,11 @@ export async function getArchive(req: Request, res: Response): Promise<void> {
   }
 
   const items = seasonIds[season].map((id) => itemEntities[id]);
-  // 现在只从缓存获取数据，不进行实时API调用
+
+  // 异步触发批量缓存刷新（不阻塞响应）
+  bangumiModel.triggerBatchCacheRefresh(items);
+
+  // 从缓存获取数据并立即返回
   const enrichedItems = await bangumiModel.enrichItemsWithImages(items);
 
   res.send({
@@ -97,7 +101,10 @@ export async function getOnAir(req: Request, res: Response): Promise<void> {
       return beginDate.isBefore(now);
     });
 
-  // 现在只从缓存获取数据，不进行实时API调用
+  // 异步触发批量缓存刷新（不阻塞响应）
+  bangumiModel.triggerBatchCacheRefresh(items);
+
+  // 从缓存获取数据并立即返回
   const enrichedItems = await bangumiModel.enrichItemsWithImages(items);
 
   res.send({

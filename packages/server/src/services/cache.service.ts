@@ -8,6 +8,7 @@ export interface ImageCache {
   [subjectId: string]: {
     url: string;
     timestamp: number;
+    isEmpty?: boolean; // 标记是否为空结果
   };
 }
 
@@ -15,6 +16,7 @@ export interface PvBvidCache {
   [mediaId: string]: {
     bvid: string;
     timestamp: number;
+    isEmpty?: boolean; // 标记是否为空结果
   };
 }
 
@@ -22,6 +24,7 @@ export interface RssCache {
   [rssUrl: string]: {
     content: RssContent;
     timestamp: number;
+    isEmpty?: boolean; // 标记是否为空结果
   };
 }
 
@@ -96,11 +99,21 @@ export class CacheService {
     return this.imageCache[subjectId];
   }
 
-  setImageCache(subjectId: string, url: string) {
-    this.imageCache[subjectId] = {
-      url,
-      timestamp: Date.now(),
-    };
+  setImageCache(subjectId: string, url: string | null) {
+    if (url === null || url === 'https://lain.bgm.tv/img/no_icon_subject.png') {
+      // 缓存空结果
+      this.imageCache[subjectId] = {
+        url: 'https://lain.bgm.tv/img/no_icon_subject.png',
+        timestamp: Date.now(),
+        isEmpty: true,
+      };
+    } else {
+      this.imageCache[subjectId] = {
+        url,
+        timestamp: Date.now(),
+        isEmpty: false,
+      };
+    }
     this.saveImageCache().catch(console.error);
   }
 
@@ -131,11 +144,21 @@ export class CacheService {
     return this.pvBvidCache[mediaId];
   }
 
-  setPvBvidCache(mediaId: string, bvid: string) {
-    this.pvBvidCache[mediaId] = {
-      bvid,
-      timestamp: Date.now(),
-    };
+  setPvBvidCache(mediaId: string, bvid: string | null) {
+    if (bvid === null) {
+      // 缓存空结果
+      this.pvBvidCache[mediaId] = {
+        bvid: '',
+        timestamp: Date.now(),
+        isEmpty: true,
+      };
+    } else {
+      this.pvBvidCache[mediaId] = {
+        bvid,
+        timestamp: Date.now(),
+        isEmpty: false,
+      };
+    }
     this.savePvBvidCache().catch(console.error);
   }
 
@@ -166,11 +189,21 @@ export class CacheService {
     return this.rssCache[rssUrl];
   }
 
-  setRssCache(rssUrl: string, content: RssContent) {
-    this.rssCache[rssUrl] = {
-      content,
-      timestamp: Date.now(),
-    };
+  setRssCache(rssUrl: string, content: RssContent | null) {
+    if (content === null) {
+      // 缓存空结果
+      this.rssCache[rssUrl] = {
+        content: { title: '', description: '', link: '', items: [] },
+        timestamp: Date.now(),
+        isEmpty: true,
+      };
+    } else {
+      this.rssCache[rssUrl] = {
+        content,
+        timestamp: Date.now(),
+        isEmpty: false,
+      };
+    }
     this.saveRssCache().catch(console.error);
   }
 
@@ -180,6 +213,50 @@ export class CacheService {
       ? this.RSS_CACHE_EXPIRE_TIME
       : this.CACHE_EXPIRE_TIME;
     return Date.now() - timestamp > expireTime;
+  }
+
+  // 检查是否为有效缓存（非空且未过期）
+  isValidCache(cached: any, isRss = false): boolean {
+    if (!cached) return false;
+    if (this.isExpired(cached.timestamp, isRss)) return false;
+    return true;
+  }
+
+  // 检查是否应该跳过刷新（包括空结果）
+  shouldSkipRefresh(cached: any, isRss = false): boolean {
+    return this.isValidCache(cached, isRss);
+  }
+
+  // 批量检查图片缓存状态
+  public checkImageCacheBatch(subjectIds: string[]): {
+    missing: string[];
+    expired: string[];
+  } {
+    const missing: string[] = [];
+    const expired: string[] = [];
+
+    for (const subjectId of subjectIds) {
+      const cached = this.getImageCache(subjectId);
+      if (!cached) {
+        missing.push(subjectId);
+      } else if (this.isExpired(cached.timestamp)) {
+        expired.push(subjectId);
+      }
+    }
+
+    return { missing, expired };
+  }
+
+  // 批量获取缓存状态
+  public getBatchCacheStatus(subjectIds: string[]): Record<string, boolean> {
+    const status: Record<string, boolean> = {};
+
+    for (const subjectId of subjectIds) {
+      const cached = this.getImageCache(subjectId);
+      status[subjectId] = cached && !this.isExpired(cached.timestamp);
+    }
+
+    return status;
   }
 }
 

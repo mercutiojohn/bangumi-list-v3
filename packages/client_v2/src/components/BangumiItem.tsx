@@ -384,7 +384,15 @@ export default function BangumiItem({
         )}
 
         {/* RSS资源状态指示 */}
-        {!hasRssData && !itemLoading && (
+        {!hasRssData && !itemLoading && displayItem.rssContent === null && (
+          <div className="border rounded-lg p-3 bg-gray-50 border-gray-200">
+            <div className="text-sm text-gray-600">
+              该番组暂无RSS资源
+            </div>
+          </div>
+        )}
+
+        {!hasRssData && !itemLoading && displayItem.rssContent === undefined && (
           <div className="border rounded-lg p-3 bg-yellow-50 border-yellow-200">
             <div className="text-sm text-yellow-800">
               正在获取RSS资源信息...

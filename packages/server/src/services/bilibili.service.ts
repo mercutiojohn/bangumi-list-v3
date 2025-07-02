@@ -72,6 +72,7 @@ export class BilibiliService {
       if (response.data.code === 0 && response.data.result?.media?.season_id) {
         return response.data.result.media.season_id;
       }
+      console.log(`[Bilibili] No season_id found for media ${mediaId}`);
       return null;
     } catch (error) {
       console.error(`Failed to fetch season_id for media ${mediaId}:`, error);
@@ -101,6 +102,7 @@ export class BilibiliService {
           return pvSection.episodes[0].bvid;
         }
       }
+      console.log(`[Bilibili] No PV bvid found for season ${seasonId}`);
       return null;
     } catch (error) {
       console.error(`Failed to fetch PV bvid for season ${seasonId}:`, error);

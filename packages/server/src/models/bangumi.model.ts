@@ -63,6 +63,9 @@ class BangumiModel {
   private retryTimer?: NodeJS.Timeout;
   private isRefreshing = false;
 
+  private batchRefreshQueue = new Set<string>(); // 防止重复刷新
+  private batchRefreshTimer?: NodeJS.Timeout;
+
   constructor() {
     this.dataFolderPath = DATA_DIR;
     this.dataPath = path.resolve(DATA_DIR, DATA_FILE);
@@ -103,8 +106,13 @@ class BangumiModel {
       const subjectId = this.getBangumiSubjectId(item);
       if (subjectId) {
         const cached = cacheService.getImageCache(subjectId);
-        if (cached && !cacheService.isExpired(cached.timestamp)) {
-          item.image = cached.url;
+        if (cacheService.isValidCache(cached)) {
+          // 只有非空结果才设置图片
+          if (!cached.isEmpty) {
+            item.image = cached.url;
+          } else {
+            item.image = null;
+          }
         }
       }
 
@@ -112,8 +120,10 @@ class BangumiModel {
       const mediaId = this.getBilibiliMediaId(item);
       if (mediaId) {
         const cached = cacheService.getPvBvidCache(mediaId);
-        if (cached && !cacheService.isExpired(cached.timestamp)) {
+        if (cacheService.isValidCache(cached) && !cached.isEmpty) {
           item.previewEmbedLink = `https://player.bilibili.com/player.html?isOutside=true&bvid=${cached.bvid}&high_quality=1`;
+        } else {
+          item.previewEmbedLink = null;
         }
       }
 
@@ -121,8 +131,10 @@ class BangumiModel {
       const rssId = this.getMikanRssId(item);
       if (rssId) {
         const cached = cacheService.getRssCache(rssId);
-        if (cached && !cacheService.isExpired(cached.timestamp, true)) {
+        if (cacheService.isValidCache(cached, true) && !cached.isEmpty) {
           item.rssContent = cached.content;
+        } else {
+          item.rssContent = null;
         }
       }
     }
@@ -203,16 +215,11 @@ class BangumiModel {
               const subjectId = this.getBangumiSubjectId(item);
               if (subjectId) {
                 const cached = cacheService.getImageCache(subjectId);
-                if (cached && !cacheService.isExpired(cached.timestamp)) {
-                  skippedCount++;
+                if (!cacheService.shouldSkipRefresh(cached)) {
+                  await this.fetchBangumiImage(subjectId);
+                  successCount++;
                 } else {
-                  const imageUrl = await bangumiService.fetchImage(subjectId);
-                  if (
-                    imageUrl !== 'https://lain.bgm.tv/img/no_icon_subject.png'
-                  ) {
-                    cacheService.setImageCache(subjectId, imageUrl);
-                    successCount++;
-                  }
+                  skippedCount++;
                 }
               }
 
@@ -220,17 +227,11 @@ class BangumiModel {
               const mediaId = this.getBilibiliMediaId(item);
               if (mediaId) {
                 const cached = cacheService.getPvBvidCache(mediaId);
-                if (cached && !cacheService.isExpired(cached.timestamp)) {
-                  skippedCount++;
+                if (!cacheService.shouldSkipRefresh(cached)) {
+                  await this.fetchPvBvid(mediaId);
+                  successCount++;
                 } else {
-                  const seasonId = await bilibiliService.fetchSeasonId(mediaId);
-                  if (seasonId) {
-                    const bvid = await bilibiliService.fetchPvBvid(seasonId);
-                    if (bvid) {
-                      cacheService.setPvBvidCache(mediaId, bvid);
-                      successCount++;
-                    }
-                  }
+                  skippedCount++;
                 }
               }
 
@@ -239,14 +240,11 @@ class BangumiModel {
               if (mikanId) {
                 const rssId = mikanId;
                 const cached = cacheService.getRssCache(rssId);
-                if (cached && !cacheService.isExpired(cached.timestamp, true)) {
-                  skippedCount++;
+                if (!cacheService.shouldSkipRefresh(cached, true)) {
+                  await this.fetchRssContent(rssId);
+                  successCount++;
                 } else {
-                  const content = await rssService.fetchContent(rssId);
-                  if (content) {
-                    cacheService.setRssCache(rssId, content);
-                    successCount++;
-                  }
+                  skippedCount++;
                 }
               }
 
@@ -307,9 +305,7 @@ class BangumiModel {
   // 获取Bangumi图片的包装方法
   private async fetchBangumiImage(subjectId: string): Promise<void> {
     const imageUrl = await bangumiService.fetchImage(subjectId);
-    if (imageUrl !== 'https://lain.bgm.tv/img/no_icon_subject.png') {
-      cacheService.setImageCache(subjectId, imageUrl);
-    }
+    cacheService.setImageCache(subjectId, imageUrl);
   }
 
   // 获取PV bvid的包装方法
@@ -317,18 +313,17 @@ class BangumiModel {
     const seasonId = await bilibiliService.fetchSeasonId(mediaId);
     if (seasonId) {
       const bvid = await bilibiliService.fetchPvBvid(seasonId);
-      if (bvid) {
-        cacheService.setPvBvidCache(mediaId, bvid);
-      }
+      cacheService.setPvBvidCache(mediaId, bvid);
+    } else {
+      // 没有season_id时也要缓存空结果
+      cacheService.setPvBvidCache(mediaId, null);
     }
   }
 
   // 获取RSS内容的包装方法
   private async fetchRssContent(rssId: string): Promise<void> {
     const content = await rssService.fetchContent(rssId);
-    if (content) {
-      cacheService.setRssCache(rssId, content);
-    }
+    cacheService.setRssCache(rssId, content);
   }
 
   // 启动时初始刷新
@@ -835,7 +830,84 @@ class BangumiModel {
     return enrichedItem;
   }
 
-  // 异步刷新单个番剧缓存（不阻塞返回）
+  // 批量触发缓存刷新（异步，不阻塞）
+  public triggerBatchCacheRefresh(items: Item[]): void {
+    const itemsToRefresh: Item[] = [];
+
+    for (const item of items) {
+      // 检查是否需要刷新图片缓存
+      const subjectId = this.getBangumiSubjectId(item);
+      if (subjectId && !this.batchRefreshQueue.has(`image_${subjectId}`)) {
+        const cached = cacheService.getImageCache(subjectId);
+        if (!cached || cacheService.isExpired(cached.timestamp)) {
+          itemsToRefresh.push(item);
+          this.batchRefreshQueue.add(`image_${subjectId}`);
+        }
+      }
+    }
+
+    if (itemsToRefresh.length > 0) {
+      console.log(
+        `[Cache] Triggering batch refresh for ${itemsToRefresh.length} items`
+      );
+
+      // 防抖处理：延迟执行，避免频繁调用
+      if (this.batchRefreshTimer) {
+        clearTimeout(this.batchRefreshTimer);
+      }
+
+      this.batchRefreshTimer = setTimeout(() => {
+        this.executeBatchCacheRefresh(itemsToRefresh);
+      }, 1000); // 1秒延迟执行
+    }
+  }
+
+  // 执行批量缓存刷新
+  private async executeBatchCacheRefresh(items: Item[]): Promise<void> {
+    const refreshPromises: Promise<void>[] = [];
+    const maxConcurrent = 5; // 限制并发数
+
+    for (let i = 0; i < items.length; i += maxConcurrent) {
+      const batch = items.slice(i, i + maxConcurrent);
+
+      const batchPromises = batch.map(async (item) => {
+        try {
+          const subjectId = this.getBangumiSubjectId(item);
+          if (subjectId) {
+            await this.fetchBangumiImage(subjectId);
+            console.log(`[Cache] Batch refreshed image for: ${item.title}`);
+          }
+        } catch (error) {
+          console.error(
+            `[Cache] Batch refresh failed for ${item.title}:`,
+            error
+          );
+        } finally {
+          // 刷新完成后从队列中移除
+          const subjectId = this.getBangumiSubjectId(item);
+          if (subjectId) {
+            this.batchRefreshQueue.delete(`image_${subjectId}`);
+          }
+        }
+      });
+
+      refreshPromises.push(...batchPromises);
+
+      // 每批次之间稍作延迟，避免API请求过于频繁
+      if (i + maxConcurrent < items.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
+    try {
+      await Promise.all(refreshPromises);
+      console.log(`[Cache] Batch refresh completed for ${items.length} items`);
+    } catch (error) {
+      console.error('[Cache] Batch refresh encountered errors:', error);
+    }
+  }
+
+  // 扩展现有的 refreshItemCacheAsync 方法，支持更多缓存类型
   private async refreshItemCacheAsync(item: Item): Promise<void> {
     try {
       console.log(`[Cache] Async refresh triggered for item: ${item.title}`);
@@ -844,13 +916,22 @@ class BangumiModel {
 
       // 检查并刷新图片缓存
       const subjectId = this.getBangumiSubjectId(item);
-      if (subjectId) {
+      if (subjectId && !this.batchRefreshQueue.has(`image_${subjectId}`)) {
         const cached = cacheService.getImageCache(subjectId);
         if (!cached || cacheService.isExpired(cached.timestamp)) {
+          this.batchRefreshQueue.add(`image_${subjectId}`);
           promises.push(
-            this.fetchBangumiImage(subjectId).catch((error) =>
-              console.error(`Failed to refresh image for ${item.title}:`, error)
-            )
+            this.fetchBangumiImage(subjectId)
+              .then(() => {
+                this.batchRefreshQueue.delete(`image_${subjectId}`);
+              })
+              .catch((error) => {
+                this.batchRefreshQueue.delete(`image_${subjectId}`);
+                console.error(
+                  `Failed to refresh image for ${item.title}:`,
+                  error
+                );
+              })
           );
         }
       }
@@ -890,6 +971,19 @@ class BangumiModel {
         `[Cache] Async refresh failed for item ${item.title}:`,
         error
       );
+    }
+  }
+
+  // 清理方法
+  public cleanup(): void {
+    if (this.batchRefreshTimer) {
+      clearTimeout(this.batchRefreshTimer);
+    }
+    if (this.cacheRefreshTask) {
+      this.cacheRefreshTask.stop();
+    }
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
     }
   }
 }
