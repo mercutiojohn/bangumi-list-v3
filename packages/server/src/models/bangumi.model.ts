@@ -97,8 +97,7 @@ class BangumiModel {
     return this.data.items.filter((item) => this.isRecentSeasonItem(item));
   }
 
-  // 修改enrichItemsWithImages方法，只从缓存获取数据
-  public async enrichItemsWithImages(items: Item[]): Promise<Item[]> {
+  public async getEnrichedItems(items: Item[]): Promise<Item[]> {
     const enrichedItems = [...items];
 
     for (const item of enrichedItems) {
@@ -113,7 +112,11 @@ class BangumiModel {
           } else {
             item.image = null;
           }
+        } else {
+          item.image = null;
         }
+      } else {
+        item.image = null;
       }
 
       // 只从缓存获取 PV bvid
@@ -125,18 +128,22 @@ class BangumiModel {
         } else {
           item.previewEmbedLink = null;
         }
+      } else {
+        item.previewEmbedLink = null;
       }
 
       // 只从缓存获取 RSS 内容
-      const rssId = this.getMikanRssId(item);
-      if (rssId) {
-        const cached = cacheService.getRssCache(rssId);
-        if (cacheService.isValidCache(cached, true) && !cached.isEmpty) {
-          item.rssContent = cached.content;
-        } else {
-          item.rssContent = null;
-        }
-      }
+      // const rssId = this.getMikanRssId(item);
+      // if (rssId) {
+      //   const cached = cacheService.getRssCache(rssId);
+      //   if (cacheService.isValidCache(cached, true) && !cached.isEmpty) {
+      //     item.rssContent = cached.content;
+      //   } else {
+      //     item.rssContent = null;
+      //   }
+      // } else {
+      //   item.rssContent = null;
+      // }
     }
 
     return enrichedItems;

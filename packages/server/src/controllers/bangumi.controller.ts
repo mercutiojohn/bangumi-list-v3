@@ -82,7 +82,7 @@ export async function getArchive(req: Request, res: Response): Promise<void> {
   bangumiModel.triggerBatchCacheRefresh(items);
 
   // 从缓存获取数据并立即返回
-  const enrichedItems = await bangumiModel.enrichItemsWithImages(items);
+  const enrichedItems = await bangumiModel.getEnrichedItems(items);
 
   res.send({
     items: enrichedItems,
@@ -105,7 +105,7 @@ export async function getOnAir(req: Request, res: Response): Promise<void> {
   bangumiModel.triggerBatchCacheRefresh(items);
 
   // 从缓存获取数据并立即返回
-  const enrichedItems = await bangumiModel.enrichItemsWithImages(items);
+  const enrichedItems = await bangumiModel.getEnrichedItems(items);
 
   res.send({
     items: enrichedItems,
