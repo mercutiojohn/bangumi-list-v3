@@ -42,12 +42,42 @@ jobs:
         EOF
 
         # 创建 .env 文件模板
-        cat > .env.example << 'EOF'
+        # cat > .env.example << 'EOF'
+        # NODE_ENV=production
+        # PORT=3000
+        # JWT_SECRET=请设置强密码
+        # GITHUB_WEBHOOK_SECRET=请设置webhook密钥
+        # DATABASE_URL=file:./data/db.db
+        # ADMIN_EMAIL=请设置管理员邮箱
+        # ADMIN_PASSWORD=请设置强密码
+        # BANGUMI_API_TOKEN=请设置bangumi_api_token
+
+        # # RSS 服务配置
+        # RSS_PROXY_HOST=127.0.0.1
+        # RSS_PROXY_PORT=7890
+        # RSS_DEBUG_LOGS=false
+        # RSS_MAX_RETRIES=3
+        # RSS_BASE_DELAY=3000
+        # RSS_MAX_CONCURRENT=1
+        # EOF
+
+        cat > .env << 'EOF'
         NODE_ENV=production
         PORT=3000
-        # 请根据需要添加其他环境变量
-        # DATABASE_URL=
-        # JWT_SECRET=
+        JWT_SECRET=${{ secrets.JWT_SECRET || '请设置强密码' }}
+        GITHUB_WEBHOOK_SECRET=${{ secrets.GITHUB_WEBHOOK_SECRET || '请设置webhook密钥' }}
+        DATABASE_URL=file:./data/db.db
+        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || '请设置管理员邮箱' }}
+        ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD || '请设置强密码' }}
+        BANGUMI_API_TOKEN=${{ secrets.BANGUMI_API_TOKEN || '请设置bangumi_api_token' }}
+
+        # RSS 服务配置
+        RSS_PROXY_HOST=127.0.0.1
+        RSS_PROXY_PORT=7890
+        RSS_DEBUG_LOGS=false
+        RSS_MAX_RETRIES=3
+        RSS_BASE_DELAY=3000
+        RSS_MAX_CONCURRENT=1
         EOF
 
     - name: Setup SSH
@@ -70,7 +100,8 @@ jobs:
         cd /opt/bangumi-list-v3
         put bangumi-list-v3.tar
         put docker-compose.yml
-        put .env.example
+        # put .env.example
+        put .env
         quit
         EOF
 
