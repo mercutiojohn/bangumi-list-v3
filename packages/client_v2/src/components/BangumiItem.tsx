@@ -498,12 +498,19 @@ export default function BangumiItem({
                               e.preventDefault();
                               const magnetLink = rssItem.magnetLink || rssItem.originalItem.enclosure?.url || rssItem.link;
                               if (magnetLink) {
-                                navigator.clipboard.writeText(magnetLink).then(() => {
-                                  window.open(`https://webtor.io/`, '_blank');
-                                }).catch(err => {
-                                  console.error('复制失败:', err);
-                                  alert('复制失败，请手动复制链接');
-                                });
+                                // 检查是否支持 Clipboard API
+                                if (navigator.clipboard && window.isSecureContext) {
+                                  navigator.clipboard.writeText(magnetLink).then(() => {
+                                    window.open(`https://webtor.io/`, '_blank');
+                                  }).catch(err => {
+                                    console.error('复制失败:', err);
+                                    // 降级到手动复制提示
+                                    fallbackCopyToClipboard(magnetLink);
+                                  });
+                                } else {
+                                  // 降级处理：使用传统方法或直接提示用户
+                                  fallbackCopyToClipboard(magnetLink);
+                                }
                               }
                             }}
                           >
@@ -550,3 +557,36 @@ export default function BangumiItem({
     </Dialog>
   );
 }
+
+// 降级复制函数
+const fallbackCopyToClipboard = (text: string) => {
+  try {
+    // 尝试使用传统的 document.execCommand 方法
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    if (successful) {
+      window.open(`https://webtor.io/`, '_blank');
+    } else {
+      throw new Error('execCommand failed');
+    }
+  } catch (err) {
+    console.error('复制失败:', err);
+    // 最后降级：提示用户手动复制
+    const userConfirmed = window.confirm(
+      `无法自动复制链接，是否手动复制以下磁力链接？\n\n${text}\n\n点击确定打开 webtor.io`
+    );
+    if (userConfirmed) {
+      window.open(`https://webtor.io/`, '_blank');
+    }
+  }
+};
