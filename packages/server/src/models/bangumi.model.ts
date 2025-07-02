@@ -40,7 +40,7 @@ interface FailedItem {
   type: 'image' | 'pv' | 'rss';
   subjectId?: string;
   mediaId?: string;
-  rssUrl?: string;
+  rssId?: string;
   retryCount: number;
   lastRetryTime: number;
 }
@@ -92,6 +92,42 @@ class BangumiModel {
   private getRecentSeasonItems(): Item[] {
     if (!this.data) return [];
     return this.data.items.filter((item) => this.isRecentSeasonItem(item));
+  }
+
+  // 修改enrichItemsWithImages方法，只从缓存获取数据
+  public async enrichItemsWithImages(items: Item[]): Promise<Item[]> {
+    const enrichedItems = [...items];
+
+    for (const item of enrichedItems) {
+      // 只从缓存获取图片
+      const subjectId = this.getBangumiSubjectId(item);
+      if (subjectId) {
+        const cached = cacheService.getImageCache(subjectId);
+        if (cached && !cacheService.isExpired(cached.timestamp)) {
+          item.image = cached.url;
+        }
+      }
+
+      // 只从缓存获取 PV bvid
+      const mediaId = this.getBilibiliMediaId(item);
+      if (mediaId) {
+        const cached = cacheService.getPvBvidCache(mediaId);
+        if (cached && !cacheService.isExpired(cached.timestamp)) {
+          item.previewEmbedLink = `https://player.bilibili.com/player.html?isOutside=true&bvid=${cached.bvid}&high_quality=1`;
+        }
+      }
+
+      // 只从缓存获取 RSS 内容
+      const rssId = this.getMikanRssId(item);
+      if (rssId) {
+        const cached = cacheService.getRssCache(rssId);
+        if (cached && !cacheService.isExpired(cached.timestamp, true)) {
+          item.rssContent = cached.content;
+        }
+      }
+    }
+
+    return enrichedItems;
   }
 
   // 启动缓存刷新调度器
@@ -201,14 +237,14 @@ class BangumiModel {
               // 刷新 RSS 缓存
               const mikanId = this.getMikanId(item);
               if (mikanId) {
-                const rssUrl = rssService.getMikanRssUrl(mikanId);
-                const cached = cacheService.getRssCache(rssUrl);
+                const rssId = mikanId;
+                const cached = cacheService.getRssCache(rssId);
                 if (cached && !cacheService.isExpired(cached.timestamp, true)) {
                   skippedCount++;
                 } else {
-                  const content = await rssService.fetchContent(rssUrl);
+                  const content = await rssService.fetchContent(rssId);
                   if (content) {
-                    cacheService.setRssCache(rssUrl, content);
+                    cacheService.setRssCache(rssId, content);
                     successCount++;
                   }
                 }
@@ -226,9 +262,7 @@ class BangumiModel {
                 type: 'image',
                 subjectId: this.getBangumiSubjectId(item) || undefined,
                 mediaId: this.getBilibiliMediaId(item) || undefined,
-                rssUrl: this.getMikanId(item)
-                  ? rssService.getMikanRssUrl(this.getMikanId(item)!)
-                  : undefined,
+                rssId: this.getMikanId(item) || undefined,
                 retryCount: 0,
                 lastRetryTime: Date.now(),
               });
@@ -264,11 +298,10 @@ class BangumiModel {
     const mikanSite = item.sites.find((site) => site.site === 'mikan');
     return mikanSite?.id || null;
   }
-
   // 获取Mikan RSS URL
-  private getMikanRssUrl(item: Item): string | null {
+  private getMikanRssId(item: Item): string | null {
     const mikanId = this.getMikanId(item);
-    return mikanId ? rssService.getMikanRssUrl(mikanId) : null;
+    return mikanId;
   }
 
   // 获取Bangumi图片的包装方法
@@ -291,10 +324,10 @@ class BangumiModel {
   }
 
   // 获取RSS内容的包装方法
-  private async fetchRssContent(rssUrl: string): Promise<void> {
-    const content = await rssService.fetchContent(rssUrl);
+  private async fetchRssContent(rssId: string): Promise<void> {
+    const content = await rssService.fetchContent(rssId);
     if (content) {
-      cacheService.setRssCache(rssUrl, content);
+      cacheService.setRssCache(rssId, content);
     }
   }
 
@@ -367,12 +400,12 @@ class BangumiModel {
           console.log(
             `[Cache] Retry success: PV for ${failedItem.id} (${failedItem.mediaId})`
           );
-        } else if (failedItem.type === 'rss' && failedItem.rssUrl) {
-          await this.fetchRssContent(failedItem.rssUrl);
+        } else if (failedItem.type === 'rss' && failedItem.rssId) {
+          await this.fetchRssContent(failedItem.rssId);
           success = true;
           retrySuccessCount++;
           console.log(
-            `[Cache] Retry success: RSS for ${failedItem.id} (${failedItem.rssUrl})`
+            `[Cache] Retry success: RSS for ${failedItem.id} (${failedItem.rssId})`
           );
         }
 
@@ -471,10 +504,10 @@ class BangumiModel {
     }
 
     // 刷新 RSS 缓存
-    const rssUrl = this.getMikanRssUrl(item);
-    if (rssUrl) {
+    const rssId = this.getMikanRssId(item);
+    if (rssId) {
       promises.push(
-        this.fetchRssContent(rssUrl).catch((error) =>
+        this.fetchRssContent(rssId).catch((error) =>
           console.error(`Failed to refresh RSS for ${item.title}:`, error)
         )
       );
@@ -537,9 +570,9 @@ class BangumiModel {
       }
 
       // 检查RSS缓存
-      const rssUrl = this.getMikanRssUrl(item);
-      if (rssUrl) {
-        const cached = cacheService.getRssCache(rssUrl);
+      const rssId = this.getMikanRssId(item);
+      if (rssId) {
+        const cached = cacheService.getRssCache(rssId);
         if (cached && !cacheService.isExpired(cached.timestamp, true)) {
           rssCached++;
         }

@@ -28,12 +28,12 @@ export class MikanRssService {
     });
   }
 
-  async fetchContent(rssUrl: string): Promise<RssContent | undefined> {
-    if (this.debugLogs) console.log('[RSS] fetchContent called with:', rssUrl);
+  async fetchContent(rssId: string): Promise<RssContent | undefined> {
+    if (this.debugLogs) console.log('[RSS] fetchContent called with:', rssId);
 
     // 添加输入验证
-    if (!rssUrl || typeof rssUrl !== 'string') {
-      console.error('[RSS] Invalid rssUrl provided:', rssUrl);
+    if (!rssId || typeof rssId !== 'string') {
+      console.error('[RSS] Invalid rssId provided:', rssId);
       return undefined;
     }
 
@@ -44,7 +44,7 @@ export class MikanRssService {
 
     this.activeRequests++;
     try {
-      return await this.performRequest(rssUrl);
+      return await this.performRequest(this.getMikanRssUrl(rssId));
     } catch (error) {
       if (this.debugLogs) {
         console.error('[RSS] Error in fetchContent:', error);
