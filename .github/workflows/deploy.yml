@@ -15,7 +15,18 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build --tag bangumi-list-v3:latest --build-arg GA_ID=${{ secrets.GA_ID }} .
+        COMMIT_HASH=$(git rev-parse --short HEAD)
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+        echo "Building with commit: $COMMIT_HASH"
+        echo "Build time: $BUILD_TIME"
+
+        docker build \
+          --tag bangumi-list-v3:latest \
+          --build-arg GA_ID=${{ secrets.GA_ID }} \
+          --build-arg COMMIT_HASH=$COMMIT_HASH \
+          --build-arg BUILD_TIME=$BUILD_TIME \
+          .
 
     - name: Save Docker image
       run: |

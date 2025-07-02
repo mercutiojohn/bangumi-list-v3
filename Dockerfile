@@ -3,9 +3,13 @@
 FROM node:20.18.0-bookworm
 
 ARG GA_ID
+ARG COMMIT_HASH
+ARG BUILD_TIME
 
 ENV TZ=Asia/Shanghai
 ENV NEXT_PUBLIC_GA_ID=${GA_ID}
+ENV COMMIT_HASH=${COMMIT_HASH}
+ENV BUILD_TIME=${BUILD_TIME}
 ENV DATA_DIR=/app/.run
 ENV RUNTIME_DIR=/app/.run
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
