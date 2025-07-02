@@ -128,6 +128,13 @@ jobs:
           docker-compose down 2>/dev/null || docker stop bangumi-list-v3 2>/dev/null || true
           docker rm bangumi-list-v3 2>/dev/null || true
 
+          # 强制删除旧镜像以确保更新
+          docker rmi bangumi-list-v3:latest 2>/dev/null || true
+
+          # 确保数据目录存在并设置权限
+          mkdir -p ./data/logs
+          chmod -R 755 ./data
+
           # 加载新镜像
           docker load -i bangumi-list-v3.tar
 
@@ -141,7 +148,7 @@ jobs:
           docker-compose up -d
 
           # 清理镜像文件
-          rm bangumi-list-v3.tar
+          rm -f bangumi-list-v3.tar
 
           echo '部署完成！'
           echo '应用已启动在端口 3000'
@@ -151,6 +158,21 @@ jobs:
     - name: Cleanup
       if: always()
       run: |
+        # 清理本地文件
         rm -f ~/.ssh/id_rsa
+        rm -f ~/.ssh/known_hosts
         rm -f bangumi-list-v3.tar
+        rm -f docker-compose.yml
+        rm -f .env
+
+        # 清理 SSH 相关配置
+        if [ -d ~/.ssh ]; then
+          chmod 700 ~/.ssh
+          rm -f ~/.ssh/id_rsa*
+        fi
+
+        # 清理临时文件
+        rm -f /tmp/bangumi-*
+
+        echo "清理完成"
 
