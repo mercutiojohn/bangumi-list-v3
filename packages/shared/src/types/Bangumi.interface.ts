@@ -86,7 +86,7 @@ interface RssContent {
 }
 
 // RSS项目接口
-interface RssItem {
+export interface RssItem {
   title: string;
   description: string;
   link: string;
