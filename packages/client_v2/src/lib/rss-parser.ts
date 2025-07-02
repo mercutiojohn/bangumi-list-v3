@@ -17,13 +17,29 @@ export interface ParsedRssItem {
 }
 
 export function parseRssTitle(item: RssItem): ParsedRssItem {
+  // tracker 列表
+  const trackers = [
+    'http://t.nyaatracker.com/announce',
+    'http://tracker.kamigami.org:2710/announce',
+    'http://share.camoe.cn:8080/announce',
+    'http://opentracker.acgnx.se/announce',
+    'http://anidex.moe:6969/announce',
+    'http://t.acg.rip:6699/announce',
+    'https://tr.bangumi.moe:9696/announce',
+    'udp://tr.bangumi.moe:6969/announce',
+    'http://open.acgtracker.com:1096/announce',
+    'udp://tracker.opentrackr.org:1337/announce'
+  ];
+
+  const encodedTrackers = trackers.map(tracker => `tr=${encodeURIComponent(tracker)}`).join('&');
+
   const result: ParsedRssItem = {
     title: item.title,
     link: '',
     size: item.enclosure?.length ? parseInt(item.enclosure.length) : undefined,
     originalItem: item,
     magnetLink: item.enclosure?.url
-      ? `magnet:?xt=urn:btih:${item.enclosure.url.split('/').pop()?.split('.torrent')[0]}&tr=http://t.nyaatracker.com/announce&tr=http://tracker.kamigami.org:2710/announce&tr=http://share.camoe.cn:8080/announce&tr=http://opentracker.acgnx.se/announce&tr=http://anidex.moe:6969/announce&tr=http://t.acg.rip:6699/announce&tr=https://tr.bangumi.moe:9696/announce&tr=udp://tr.bangumi.moe:6969/announce&tr=http://open.acgtracker.com:1096/announce&tr=udp://tracker.opentrackr.org:1337/announce`
+      ? `magnet:?xt=urn:btih:${item.enclosure.url.split('/').pop()?.split('.torrent')[0]}&${encodedTrackers}`
       : '',
     infoHash: item.enclosure?.url
       ? item.enclosure.url.split('/').pop() || ''
