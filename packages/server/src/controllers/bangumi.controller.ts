@@ -104,3 +104,49 @@ export async function getOnAir(req: Request, res: Response): Promise<void> {
     items: enrichedItems,
   });
 }
+
+// 添加获取单个番剧缓存状态的接口
+export async function getItemCache(req: Request, res: Response): Promise<void> {
+  try {
+    const { itemId } = req.params;
+    const item = bangumiModel.itemEntities[itemId];
+
+    if (!item) {
+      res.status(404).send({ error: 'Item not found' });
+      return;
+    }
+
+    const cacheStatus = bangumiModel.getItemCacheStatus(item);
+    res.send(cacheStatus);
+  } catch (error) {
+    console.error('Failed to get item cache status:', error);
+    res.status(500).send({ error: 'Failed to get item cache status' });
+  }
+}
+
+// 添加刷新单个番剧缓存的接口
+export async function refreshItemCache(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const { itemId } = req.params;
+    const item = bangumiModel.itemEntities[itemId];
+
+    if (!item) {
+      res.status(404).send({ error: 'Item not found' });
+      return;
+    }
+
+    await bangumiModel.refreshItemCache(item);
+    const updatedCacheStatus = bangumiModel.getItemCacheStatus(item);
+
+    res.send({
+      message: 'Item cache refreshed successfully',
+      cache: updatedCacheStatus,
+    });
+  } catch (error) {
+    console.error('Failed to refresh item cache:', error);
+    res.status(500).send({ error: 'Failed to refresh item cache' });
+  }
+}

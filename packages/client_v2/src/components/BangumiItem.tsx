@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { getBroadcastTimeString, SiteType } from "@/lib/bangumi-utils";
 import BangumiLinkItem from "./BangumiLinkItem";
 import { useState, useEffect } from 'react';
+import { useItemCache, useItemCacheActions } from "@/hooks/useBangumi";
+import { parseRssTitle, groupRssItems, type ParsedRssItem } from "@/lib/rss-parser";
 
 interface BangumiItemProps {
   className?: string;
@@ -35,6 +37,13 @@ export default function BangumiItem({
 }: BangumiItemProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showCacheInfo, setShowCacheInfo] = useState(false);
+
+  // 添加缓存相关hooks
+  const { data: cacheData, isLoading: cacheLoading, mutate: mutateCacheData } = useItemCache(
+    showCacheInfo && item.id ? item.id : null
+  );
+  const { refreshItemCache } = useItemCacheActions();
 
   useEffect(() => {
     const checkIsMobile = () => {
@@ -58,6 +67,18 @@ export default function BangumiItem({
   const infoSites: React.ReactNode[] = [];
   const onairSites: React.ReactNode[] = [];
   const resourceSites: React.ReactNode[] = [];
+
+  // RSS
+  const rssItems: ParsedRssItem[] = [];
+
+  for (const rss of item.rssContent?.items || []) {
+    const parsed = parseRssTitle(rss);
+    parsed.link = rss.link;
+    rssItems.push(parsed);
+  }
+
+  // 按字幕组和质量分组
+  const groupedRssItems = groupRssItems(rssItems);
 
   for (const site of item.sites) {
     if (!siteMeta[site.site]) continue;
@@ -97,6 +118,17 @@ export default function BangumiItem({
 
   const handleWatchingClick = () => {
     onWatchingClick?.();
+  };
+
+  const handleCacheRefresh = async () => {
+    if (!item.id) return;
+
+    try {
+      const result = await refreshItemCache(item.id);
+      await mutateCacheData(result.cache);
+    } catch (error) {
+      console.error('Failed to refresh cache:', error);
+    }
   };
 
   const cardPreview = (
@@ -164,27 +196,22 @@ export default function BangumiItem({
       {/* 番组图片 */}
       <div className={cn("flex-shrink-0")}>
         <div className="relative">
-          {item.previewEmbedLink ? (
+          {item.previewEmbedLink || (cacheData?.pv.cached && cacheData.pv.embedLink) ? (
             <>
               <div className="aspect-video bg-gray-100 overflow-hidden">
                 <iframe
-                  src={item.previewEmbedLink}
+                  src={item.previewEmbedLink || cacheData?.pv.embedLink}
                   className="w-full h-full border-0 user-select-none"
                   allowFullScreen
                   title={`${titleCN || item.title} PV`}
                 />
               </div>
-              {/* <div className="absolute inset-0 bg-black/20 rounded-lg opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-              <div className="bg-black/60 rounded-full p-2">
-                <Play className="w-6 h-6 text-white fill-current" />
-              </div>
-            </div> */}
             </>
           ) : (
             <div className="flex items-center justify-center aspect-video bg-gray-100">
-              {item.image ? (
+              {item.image || (cacheData?.image.cached && cacheData.image.url) ? (
                 <img
-                  src={item.image}
+                  src={item.image || cacheData?.image.url}
                   alt={titleCN || item.title}
                   className={cn(
                     "object-cover",
@@ -209,7 +236,7 @@ export default function BangumiItem({
 
       {/* 番组信息 */}
       <div className="flex-1 min-w-0 space-y-4 px-4">
-        {/* 标题和在看按钮 */}
+        {/* 标题和按钮组 */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h3 className={cn(
@@ -244,21 +271,98 @@ export default function BangumiItem({
             </div>
           </div>
 
-          {!isArchive && (
+          <div className="flex gap-2">
+            {/* 缓存信息按钮 */}
             <Button
-              variant={isWatching ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              onClick={handleWatchingClick}
-              className={cn(
-                "shrink-0 transition-colors",
-                isWatching && "bg-red-500 hover:bg-red-600 text-white"
-              )}
+              onClick={() => setShowCacheInfo(!showCacheInfo)}
+              className="shrink-0"
             >
-              <Heart className={cn("h-4 w-4", isWatching && "fill-current")} />
-              <span className="sr-only">{isWatching ? '取消在看' : '在看'}</span>
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">缓存信息</span>
             </Button>
-          )}
+
+            {!isArchive && (
+              <Button
+                variant={isWatching ? "default" : "outline"}
+                size="sm"
+                onClick={handleWatchingClick}
+                className={cn(
+                  "shrink-0 transition-colors",
+                  isWatching && "bg-red-500 hover:bg-red-600 text-white"
+                )}
+              >
+                <Heart className={cn("h-4 w-4", isWatching && "fill-current")} />
+                <span className="sr-only">{isWatching ? '取消在看' : '在看'}</span>
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* 缓存信息面板 */}
+        {showCacheInfo && (
+          <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium text-sm">缓存状态</h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCacheRefresh}
+                disabled={!item.id}
+              >
+                刷新缓存
+              </Button>
+            </div>
+
+            {cacheLoading ? (
+              <div className="text-sm text-muted-foreground">加载中...</div>
+            ) : cacheData ? (
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-12">图片:</span>
+                  <Badge variant={cacheData.image.cached ? "default" : "secondary"}>
+                    {cacheData.image.cached ? "已缓存" : "未缓存"}
+                  </Badge>
+                  {cacheData.image.subjectId && (
+                    <span className="text-xs text-muted-foreground">
+                      ID: {cacheData.image.subjectId}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-12">PV:</span>
+                  <Badge variant={cacheData.pv.cached ? "default" : "secondary"}>
+                    {cacheData.pv.cached ? "已缓存" : "未缓存"}
+                  </Badge>
+                  {cacheData.pv.mediaId && (
+                    <span className="text-xs text-muted-foreground">
+                      ID: {cacheData.pv.mediaId}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-12">RSS:</span>
+                  <Badge variant={cacheData.rss.cached ? "default" : "secondary"}>
+                    {cacheData.rss.cached ? "已缓存" : "未缓存"}
+                  </Badge>
+                  {cacheData.rss.rssId && (
+                    <span className="text-xs text-muted-foreground">
+                      ID: {cacheData.rss.rssId}
+                    </span>
+                  )}
+                </div>
+                {cacheData.rss.cached && cacheData.rss.content && (
+                  <div className="text-xs text-muted-foreground">
+                    RSS条目: {cacheData.rss.content.items?.length || 0}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">无缓存数据</div>
+            )}
+          </div>
+        )}
 
         {/* 播放时间信息 */}
         <div className={cn(
@@ -317,6 +421,64 @@ export default function BangumiItem({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {onairSites}
+              </div>
+            </div>
+          )}
+
+          {groupedRssItems.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Play className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">RSS资源</span>
+              </div>
+              <div className="space-y-3">
+                {groupedRssItems.map(({ groupKey, items }) => {
+                  const firstItem = items[0];
+                  return (
+                    <div key={groupKey} className="border rounded-lg p-3 bg-gray-50/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-medium text-gray-900">
+                          {firstItem.subGroup} - {firstItem.resolution}
+                          {firstItem.source && ` (${firstItem.source})`}
+                          {firstItem.language && ` [${firstItem.language}]`}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {items.length} 集
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1">
+                        {items.map((rssItem, index) => (
+                          <a
+                            key={index}
+                            // href={`https://webtor.io/${rssItem.infoHash}` || rssItem.magnetLink || rssItem.originalItem.enclosure?.url || rssItem.link}
+                            href={`https://webtor.io/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded text-center transition-colors"
+                            title={rssItem.title}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const magnetLink = rssItem.magnetLink || rssItem.originalItem.enclosure?.url || rssItem.link;
+                              if (magnetLink) {
+                                navigator.clipboard.writeText(magnetLink).then(() => {
+                                  window.open(`https://webtor.io/`, '_blank');
+                                }).catch(err => {
+                                  console.error('复制失败:', err);
+                                  alert('复制失败，请手动复制链接');
+                                });
+                              }
+                            }}
+                          >
+                            {rssItem.episode ?
+                              `${rssItem.episode}${rssItem.version || ''}` :
+                              index + 1
+                            }
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

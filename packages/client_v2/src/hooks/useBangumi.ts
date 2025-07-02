@@ -18,6 +18,27 @@ interface CacheStatus {
   };
 }
 
+// 单个番剧缓存状态接口
+interface ItemCacheStatus {
+  itemId: string;
+  title: string;
+  image: {
+    cached: boolean;
+    url?: string;
+    subjectId?: string;
+  };
+  pv: {
+    cached: boolean;
+    embedLink?: string;
+    mediaId?: string;
+  };
+  rss: {
+    cached: boolean;
+    content?: any;
+    rssId?: string;
+  };
+}
+
 // SWR fetcher function with proper typing
 const fetcher = (url: string) => apiClient.request('GET', url);
 
@@ -93,15 +114,49 @@ export const useCacheStatus = () => {
 // Hook for bangumi actions
 export const useBangumiActions = () => {
   const updateBangumi = async (): Promise<void> => {
-    await apiClient.request<void>('POST', 'bangumi/update', undefined, undefined, true);
+    await apiClient.request<void>('POST', 'bangumi/update', undefined, undefined);
   };
 
   const refreshCache = async (): Promise<{ message: string }> => {
-    return await apiClient.request<{ message: string }>('POST', 'bangumi/refresh-cache', undefined, undefined, true);
+    return await apiClient.request<{ message: string }>('POST', 'bangumi/refresh-cache', undefined, undefined);
   };
 
   return {
     updateBangumi,
     refreshCache,
+  };
+};
+
+// Hook for single item cache status
+export const useItemCache = (itemId: string | null) => {
+  const { data, error, isLoading, mutate } = useSWR<ItemCacheStatus>(
+    itemId ? `bangumi/item/${itemId}/cache` : null,
+    fetcher,
+    {
+      refreshInterval: 3000, // 每3秒刷新一次
+    }
+  );
+
+  return {
+    data,
+    error,
+    isLoading,
+    mutate,
+  };
+};
+
+// Hook for item cache actions
+export const useItemCacheActions = () => {
+  const refreshItemCache = async (itemId: string): Promise<{ message: string; cache: ItemCacheStatus }> => {
+    return await apiClient.request<{ message: string; cache: ItemCacheStatus }>(
+      'POST',
+      `bangumi/item/${itemId}/refresh-cache`,
+      undefined,
+      undefined
+    );
+  };
+
+  return {
+    refreshItemCache,
   };
 };

@@ -591,6 +591,84 @@ class BangumiModel {
     };
   }
 
+  // 获取单个番剧的缓存状态
+  public getItemCacheStatus(item: Item): {
+    itemId: string;
+    title: string;
+    image: {
+      cached: boolean;
+      url?: string;
+      subjectId?: string;
+    };
+    pv: {
+      cached: boolean;
+      embedLink?: string;
+      mediaId?: string;
+    };
+    rss: {
+      cached: boolean;
+      content?: any;
+      rssId?: string;
+    };
+  } {
+    const subjectId = this.getBangumiSubjectId(item);
+    const mediaId = this.getBilibiliMediaId(item);
+    const rssId = this.getMikanRssId(item);
+
+    // 检查图片缓存
+    let imageCached = false;
+    let imageUrl: string | undefined;
+    if (subjectId) {
+      const cached = cacheService.getImageCache(subjectId);
+      if (cached && !cacheService.isExpired(cached.timestamp)) {
+        imageCached = true;
+        imageUrl = cached.url;
+      }
+    }
+
+    // 检查PV缓存
+    let pvCached = false;
+    let embedLink: string | undefined;
+    if (mediaId) {
+      const cached = cacheService.getPvBvidCache(mediaId);
+      if (cached && !cacheService.isExpired(cached.timestamp)) {
+        pvCached = true;
+        embedLink = `https://player.bilibili.com/player.html?isOutside=true&bvid=${cached.bvid}&high_quality=1`;
+      }
+    }
+
+    // 检查RSS缓存
+    let rssCached = false;
+    let rssContent: any;
+    if (rssId) {
+      const cached = cacheService.getRssCache(rssId);
+      if (cached && !cacheService.isExpired(cached.timestamp, true)) {
+        rssCached = true;
+        rssContent = cached.content;
+      }
+    }
+
+    return {
+      itemId: item.id || '',
+      title: item.title,
+      image: {
+        cached: imageCached,
+        url: imageUrl,
+        subjectId: subjectId || undefined,
+      },
+      pv: {
+        cached: pvCached,
+        embedLink: embedLink,
+        mediaId: mediaId || undefined,
+      },
+      rss: {
+        cached: rssCached,
+        content: rssContent,
+        rssId: rssId || undefined,
+      },
+    };
+  }
+
   // 停止缓存刷新调度器
   public stopCacheRefreshScheduler(): void {
     if (this.cacheRefreshTask) {
