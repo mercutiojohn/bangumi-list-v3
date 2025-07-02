@@ -52,6 +52,8 @@ jobs:
               - ./data:/app/.run
             env_file:
               - .env
+            extra_hosts:
+              - "host.docker.internal:host-gateway"
         EOF
 
         # 创建 .env 文件模板
