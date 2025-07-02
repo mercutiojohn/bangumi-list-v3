@@ -35,6 +35,8 @@ jobs:
             restart: unless-stopped
             environment:
               - NODE_ENV=production
+              - DATA_DIR=/app/.run
+              - RUNTIME_DIR=/app/.run
             volumes:
               - ./data:/app/.run
             env_file:
@@ -47,10 +49,16 @@ jobs:
         # PORT=3000
         # JWT_SECRET=请设置强密码
         # GITHUB_WEBHOOK_SECRET=请设置webhook密钥
-        # DATABASE_URL=file:./data/db.db
         # ADMIN_EMAIL=请设置管理员邮箱
         # ADMIN_PASSWORD=请设置强密码
         # BANGUMI_API_TOKEN=请设置bangumi_api_token
+        # DATABASE_URL=file:./data/db.db
+        # DATA_DIR=/app/.run
+        # RUNTIME_DIR=/app/.run
+        # LOG_DIR=/app/.run/logs
+        # LOG_FILE=server.log
+        # DB_DIR=/app/.run
+        # DATA_FILE=data.json
 
         # # RSS 服务配置
         # RSS_PROXY_HOST=127.0.0.1
@@ -64,12 +72,18 @@ jobs:
         cat > .env << 'EOF'
         NODE_ENV=production
         PORT=3000
-        JWT_SECRET=${{ secrets.JWT_SECRET || '请设置强密码' }}
-        GITHUB_WEBHOOK_SECRET=${{ secrets.GITHUB_WEBHOOK_SECRET || '请设置webhook密钥' }}
+        JWT_SECRET=${{ secrets.JWT_SECRET || 'jwt_secret_change_me' }}
+        GITHUB_WEBHOOK_SECRET=${{ secrets.GITHUB_WEBHOOK_SECRET || 'webhook_secret_change_me' }}
+        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || 'admin@abc123.com' }}
+        ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD || 'abc123' }}
+        BANGUMI_API_TOKEN=${{ secrets.BANGUMI_API_TOKEN || 'no_bangumi_api_token' }}
         DATABASE_URL=file:./data/db.db
-        ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL || '请设置管理员邮箱' }}
-        ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD || '请设置强密码' }}
-        BANGUMI_API_TOKEN=${{ secrets.BANGUMI_API_TOKEN || '请设置bangumi_api_token' }}
+        DATA_DIR=/app/.run
+        RUNTIME_DIR=/app/.run
+        LOG_DIR=/app/.run/logs
+        LOG_FILE=server.log
+        DB_DIR=/app/.run
+        DATA_FILE=data.json
 
         # RSS 服务配置
         RSS_PROXY_HOST=127.0.0.1

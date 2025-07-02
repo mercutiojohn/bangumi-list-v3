@@ -61,9 +61,17 @@ export class CacheService {
   private readonly rssCachePath: string;
 
   constructor() {
+    // 确保 DATA_DIR 目录存在
+    fse.ensureDirSync(DATA_DIR);
+
     this.imageCachePath = path.resolve(DATA_DIR, 'image-cache.json');
     this.pvBvidCachePath = path.resolve(DATA_DIR, 'pv-bvid-cache.json');
     this.rssCachePath = path.resolve(DATA_DIR, 'rss-cache.json');
+
+    console.log(`[Cache] Cache files will be stored in: ${DATA_DIR}`);
+    console.log(`[Cache] Image cache: ${this.imageCachePath}`);
+    console.log(`[Cache] PV cache: ${this.pvBvidCachePath}`);
+    console.log(`[Cache] RSS cache: ${this.rssCachePath}`);
   }
 
   async init() {

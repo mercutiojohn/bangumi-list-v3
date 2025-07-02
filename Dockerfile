@@ -6,6 +6,8 @@ ARG GA_ID
 
 ENV TZ=Asia/Shanghai
 ENV NEXT_PUBLIC_GA_ID=${GA_ID}
+ENV DATA_DIR=/app/.run
+ENV RUNTIME_DIR=/app/.run
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 WORKDIR /app
