@@ -797,6 +797,101 @@ class BangumiModel {
       this.refreshAllCaches().catch(console.error);
     }, 1000);
   }
+
+  // 添加获取单个完整番剧数据的方法
+  public async getEnrichedItem(item: Item): Promise<Item> {
+    const enrichedItem = { ...item };
+
+    // 异步触发缓存刷新，但不等待完成
+    this.refreshItemCacheAsync(item);
+
+    // 立即返回缓存中的数据
+    const subjectId = this.getBangumiSubjectId(item);
+    if (subjectId) {
+      const cached = cacheService.getImageCache(subjectId);
+      if (cached && !cacheService.isExpired(cached.timestamp)) {
+        enrichedItem.image = cached.url;
+      }
+    }
+
+    // 获取 PV 缓存
+    const mediaId = this.getBilibiliMediaId(item);
+    if (mediaId) {
+      const cached = cacheService.getPvBvidCache(mediaId);
+      if (cached && !cacheService.isExpired(cached.timestamp)) {
+        enrichedItem.previewEmbedLink = `https://player.bilibili.com/player.html?isOutside=true&bvid=${cached.bvid}&high_quality=1`;
+      }
+    }
+
+    // 获取 RSS 缓存
+    const rssId = this.getMikanRssId(item);
+    if (rssId) {
+      const cached = cacheService.getRssCache(rssId);
+      if (cached && !cacheService.isExpired(cached.timestamp, true)) {
+        enrichedItem.rssContent = cached.content;
+      }
+    }
+
+    return enrichedItem;
+  }
+
+  // 异步刷新单个番剧缓存（不阻塞返回）
+  private async refreshItemCacheAsync(item: Item): Promise<void> {
+    try {
+      console.log(`[Cache] Async refresh triggered for item: ${item.title}`);
+
+      const promises: Promise<any>[] = [];
+
+      // 检查并刷新图片缓存
+      const subjectId = this.getBangumiSubjectId(item);
+      if (subjectId) {
+        const cached = cacheService.getImageCache(subjectId);
+        if (!cached || cacheService.isExpired(cached.timestamp)) {
+          promises.push(
+            this.fetchBangumiImage(subjectId).catch((error) =>
+              console.error(`Failed to refresh image for ${item.title}:`, error)
+            )
+          );
+        }
+      }
+
+      // 检查并刷新 PV 缓存
+      const mediaId = this.getBilibiliMediaId(item);
+      if (mediaId) {
+        const cached = cacheService.getPvBvidCache(mediaId);
+        if (!cached || cacheService.isExpired(cached.timestamp)) {
+          promises.push(
+            this.fetchPvBvid(mediaId).catch((error) =>
+              console.error(`Failed to refresh PV for ${item.title}:`, error)
+            )
+          );
+        }
+      }
+
+      // 检查并刷新 RSS 缓存
+      const rssId = this.getMikanRssId(item);
+      if (rssId) {
+        const cached = cacheService.getRssCache(rssId);
+        if (!cached || cacheService.isExpired(cached.timestamp, true)) {
+          promises.push(
+            this.fetchRssContent(rssId).catch((error) =>
+              console.error(`Failed to refresh RSS for ${item.title}:`, error)
+            )
+          );
+        }
+      }
+
+      if (promises.length > 0) {
+        await Promise.all(promises);
+        console.log(`[Cache] Async refresh completed for item: ${item.title}`);
+      }
+    } catch (error) {
+      console.error(
+        `[Cache] Async refresh failed for item ${item.title}:`,
+        error
+      );
+    }
+  }
 }
 
 function generateItemID(item: Item): string {

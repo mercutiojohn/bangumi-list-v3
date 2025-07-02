@@ -1,4 +1,4 @@
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { apiClient } from '@/lib/api';
 import type { Item, SiteMeta, OnAirData, SeasonData } from 'bangumi-list-v3-shared';
 
@@ -127,13 +127,68 @@ export const useBangumiActions = () => {
   };
 };
 
-// Hook for single item cache status
+// Hook for single item data (complete with RSS)
+export const useItemData = (itemId: string | null) => {
+  const { data, error, isLoading, mutate: mutateItem } = useSWR<Item>(
+    itemId ? `bangumi/item/${itemId}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      // 启用轮询以获取更新的缓存数据
+      refreshInterval: (latestData) => {
+        // 获取当前轮询次数
+        const pollCountKey = `poll_count_${itemId}`;
+        const currentCount = parseInt(sessionStorage.getItem(pollCountKey) || '0');
+
+        // 如果没有 RSS 数据且轮询次数少于3次，每8秒轮询一次
+        if (!latestData?.rssContent && currentCount < 3) {
+          // 增加轮询计数
+          sessionStorage.setItem(pollCountKey, String(currentCount + 1));
+          return 8000;
+        }
+
+        // 有数据或轮询超过3次后停止轮询
+        if (latestData?.rssContent || currentCount >= 3) {
+          // 清除轮询计数
+          sessionStorage.removeItem(pollCountKey);
+
+          // 如果成功获取到 RSS 数据，刷新相关列表
+          if (latestData?.rssContent) {
+            // 刷新当前播放列表
+            mutate('bangumi/onair');
+
+            // 刷新归档列表（如果 item 有 begin 字段，计算其所属季度）
+            if (latestData.begin) {
+              const beginDate = new Date(latestData.begin);
+              const year = beginDate.getFullYear();
+              const month = beginDate.getMonth() + 1;
+              const quarter = Math.ceil(month / 3);
+              const season = `${year}q${quarter}`;
+              mutate(`bangumi/archive/${season}`);
+            }
+          }
+        }
+        return 0;
+      },
+    }
+  );
+
+  return {
+    data,
+    error,
+    isLoading,
+    mutate: mutateItem,
+  };
+};
+
+// 修改原有的 useItemCache hook，保持向后兼容
 export const useItemCache = (itemId: string | null) => {
   const { data, error, isLoading, mutate } = useSWR<ItemCacheStatus>(
     itemId ? `bangumi/item/${itemId}/cache` : null,
     fetcher,
     {
-      refreshInterval: 3000, // 每3秒刷新一次
+      refreshInterval: 6000,
     }
   );
 

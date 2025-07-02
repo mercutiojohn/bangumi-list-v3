@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { getBroadcastTimeString, SiteType } from "@/lib/bangumi-utils";
 import BangumiLinkItem from "./BangumiLinkItem";
 import { useState, useEffect } from 'react';
-import { useItemCache, useItemCacheActions } from "@/hooks/useBangumi";
+import { useItemData, useItemCache, useItemCacheActions } from "@/hooks/useBangumi";
 import { parseRssTitle, groupRssItems, type ParsedRssItem } from "@/lib/rss-parser";
 
 interface BangumiItemProps {
@@ -39,10 +39,16 @@ export default function BangumiItem({
   const [isMobile, setIsMobile] = useState(false);
   const [showCacheInfo, setShowCacheInfo] = useState(false);
 
-  // 添加缓存相关hooks
+  // 使用新的单个番剧查询接口
+  const { data: itemData, isLoading: itemLoading, mutate: mutateItemData } = useItemData(
+    isDialogOpen && item.id ? item.id : null
+  );
+
+  // 保留缓存状态查询（用于缓存信息面板）
   const { data: cacheData, isLoading: cacheLoading, mutate: mutateCacheData } = useItemCache(
     showCacheInfo && item.id ? item.id : null
   );
+
   const { refreshItemCache } = useItemCacheActions();
 
   useEffect(() => {
@@ -68,16 +74,17 @@ export default function BangumiItem({
   const onairSites: React.ReactNode[] = [];
   const resourceSites: React.ReactNode[] = [];
 
-  // RSS
-  const rssItems: ParsedRssItem[] = [];
+  // 使用完整的番剧数据或回退到列表数据
+  const displayItem = itemData || item;
+  const hasRssData = displayItem.rssContent?.items?.length > 0;
 
-  for (const rss of item.rssContent?.items || []) {
+  // RSS数据处理
+  const rssItems: ParsedRssItem[] = [];
+  for (const rss of displayItem.rssContent?.items || []) {
     const parsed = parseRssTitle(rss);
     parsed.link = rss.link;
     rssItems.push(parsed);
   }
-
-  // 按字幕组和质量分组
   const groupedRssItems = groupRssItems(rssItems);
 
   for (const site of item.sites) {
@@ -126,6 +133,8 @@ export default function BangumiItem({
     try {
       const result = await refreshItemCache(item.id);
       await mutateCacheData(result.cache);
+      // 同时刷新完整的番剧数据
+      await mutateItemData();
     } catch (error) {
       console.error('Failed to refresh cache:', error);
     }
@@ -186,33 +195,43 @@ export default function BangumiItem({
     </div>
   );
 
-  // 详细的卡片内容（在 Dialog/Drawer 中展示）
+  // 详细的卡片内容
   const cardDetail = (
     <div className={cn(
       "flex gap-6",
       "flex-col overflow-y-auto pb-4",
       isMobile && "mt-4",
     )}>
+      {/* 加载状态指示器 */}
+      {itemLoading && (
+        <div className="text-center py-4">
+          <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600"></div>
+            加载详细信息中...
+          </div>
+        </div>
+      )}
+
       {/* 番组图片 */}
       <div className={cn("flex-shrink-0")}>
         <div className="relative">
-          {item.previewEmbedLink || (cacheData?.pv.cached && cacheData.pv.embedLink) ? (
+          {displayItem.previewEmbedLink ? (
             <>
               <div className="aspect-video bg-gray-100 overflow-hidden">
                 <iframe
-                  src={item.previewEmbedLink || cacheData?.pv.embedLink}
+                  src={displayItem.previewEmbedLink}
                   className="w-full h-full border-0 user-select-none"
                   allowFullScreen
-                  title={`${titleCN || item.title} PV`}
+                  title={`${titleCN || displayItem.title} PV`}
                 />
               </div>
             </>
           ) : (
             <div className="flex items-center justify-center aspect-video bg-gray-100">
-              {item.image || (cacheData?.image.cached && cacheData.image.url) ? (
+              {displayItem.image ? (
                 <img
-                  src={item.image || cacheData?.image.url}
-                  alt={titleCN || item.title}
+                  src={displayItem.image}
+                  alt={titleCN || displayItem.title}
                   className={cn(
                     "object-cover",
                     "rounded-lg bg-gray-100 shadow-md m-6",
@@ -243,7 +262,7 @@ export default function BangumiItem({
               "font-semibold leading-tight mb-2 line-clamp-2",
               isMobile ? "text-lg" : "text-xl"
             )}>
-              {titleCN || item.title}
+              {titleCN || displayItem.title}
 
               {!isArchive && isNew && (
                 <Badge variant="secondary" className="ml-2 text-xs bg-orange-100 text-orange-800">
@@ -253,15 +272,15 @@ export default function BangumiItem({
             </h3>
             {titleCN && (
               <p className="text-sm text-muted-foreground line-clamp-1 mb-3">
-                {item.title}
+                {displayItem.title}
               </p>
             )}
 
             {/* 信息站点 */}
             <div className="flex gap-4">
-              {item.officialSite && (
+              {displayItem.officialSite && (
                 <Button variant="link" size="sm" asChild className="px-0">
-                  <a href={item.officialSite} rel="noopener" target="_blank" className="text-xs !text-muted-foreground inline-flex items-center gap-1 !p-0">
+                  <a href={displayItem.officialSite} rel="noopener" target="_blank" className="text-xs !text-muted-foreground inline-flex items-center gap-1 !p-0">
                     官网
                     <ExternalLink className="h-2 w-2" />
                   </a>
@@ -364,6 +383,15 @@ export default function BangumiItem({
           </div>
         )}
 
+        {/* RSS资源状态指示 */}
+        {!hasRssData && !itemLoading && (
+          <div className="border rounded-lg p-3 bg-yellow-50 border-yellow-200">
+            <div className="text-sm text-yellow-800">
+              正在获取RSS资源信息...
+            </div>
+          </div>
+        )}
+
         {/* 播放时间信息 */}
         <div className={cn(
           "grid gap-3 text-sm",
@@ -398,7 +426,7 @@ export default function BangumiItem({
           </div>
         </div>
 
-        {/* 链接信息 - 使用 Popover */}
+        {/* 链接信息 */}
         <div className="space-y-4">
           {/* 下载站点 */}
           {resourceSites.length > 0 && (
@@ -412,6 +440,7 @@ export default function BangumiItem({
               </div>
             </div>
           )}
+
           {/* 配信站点 */}
           {onairSites.length > 0 && (
             <div>
@@ -425,6 +454,7 @@ export default function BangumiItem({
             </div>
           )}
 
+          {/* RSS资源 */}
           {groupedRssItems.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-2">

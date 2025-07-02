@@ -105,7 +105,27 @@ export async function getOnAir(req: Request, res: Response): Promise<void> {
   });
 }
 
-// 添加获取单个番剧缓存状态的接口
+// 修改现有的 getItemCache 接口为 getItem 接口
+export async function getItem(req: Request, res: Response): Promise<void> {
+  try {
+    const { itemId } = req.params;
+    const item = bangumiModel.itemEntities[itemId];
+
+    if (!item) {
+      res.status(404).send({ error: 'Item not found' });
+      return;
+    }
+
+    // 触发缓存刷新机制，获取完整的番剧数据
+    const enrichedItem = await bangumiModel.getEnrichedItem(item);
+    res.send(enrichedItem);
+  } catch (error) {
+    console.error('Failed to get item:', error);
+    res.status(500).send({ error: 'Failed to get item' });
+  }
+}
+
+// 保留原有的缓存状态查询接口
 export async function getItemCache(req: Request, res: Response): Promise<void> {
   try {
     const { itemId } = req.params;

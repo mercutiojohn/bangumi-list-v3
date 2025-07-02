@@ -54,7 +54,12 @@ router.get('/cache-status', async (req: Request, res: Response) => {
   await bangumiController.getCacheStatus(req, res);
 });
 
-// 添加单个番剧缓存相关的路由
+// 添加单个番剧查询路由
+router.get('/item/:itemId', async (req: Request, res: Response) => {
+  await bangumiController.getItem(req, res);
+});
+
+// 保留原有的缓存状态路由
 router.get('/item/:itemId/cache', async (req: Request, res: Response) => {
   await bangumiController.getItemCache(req, res);
 });
